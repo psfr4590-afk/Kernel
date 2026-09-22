@@ -61,7 +61,7 @@ Delegation, if supported, MUST preserve provenance and bounded scope.
 
 A delegate MUST NOT receive more authority than the delegating principal can legitimately confer.
 
-Delegation semantics are unresolved and require a dedicated contract.
+Delegation semantics are defined by ADR-010.
 
 ## 8. Revocation
 
