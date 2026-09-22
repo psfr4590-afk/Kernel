@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Mapping
 from uuid import UUID, uuid4
@@ -76,18 +76,10 @@ class Outcome:
     evidence: Mapping[str, Any]
 
 
-"""Evidence records with explicit lineage metadata."""
-
-from __future__ import annotations
-
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Mapping
-from uuid import UUID
-
-
 @dataclass(frozen=True)
 class Event:
+    """Evidence record with explicit lineage metadata."""
+
     id: UUID
     sequence: int
     event_type: str
