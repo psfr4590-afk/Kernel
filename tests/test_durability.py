@@ -119,3 +119,29 @@ def test_state_sequence_must_not_move_backwards() -> None:
             subject="request-1",
             state={"status": "FAILED"},
         )
+
+
+def test_file_backed_store_survives_close_and_reopen(tmp_path) -> None:
+    database = tmp_path / "kernel.db"
+    store = SQLiteEventStore(str(database))
+    request_id = str(uuid4())
+    try:
+        sequence = store.append(
+            event_id=str(uuid4()),
+            event_type="request.denied",
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            payload={"request_id": request_id, "reason": "policy"},
+        )
+        assert sequence == 1
+    finally:
+        store.close()
+
+    reopened = SQLiteEventStore(str(database))
+    try:
+        assert len(reopened.all_events()) == 1
+        assert replay_request_state(reopened.all_events(), request_id) == {
+            "status": "DENIED",
+            "event_sequence": 1,
+        }
+    finally:
+        reopened.close()
