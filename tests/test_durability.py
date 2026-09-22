@@ -55,3 +55,60 @@ def test_state_can_be_reconstructed_from_event_history():
         assert state == {"status": "DENIED", "event_sequence": 1}
     finally:
         store.close()
+
+
+def test_denial_state_is_materialized_with_event() -> None:
+    from kernel import process
+    from kernel.authority import RevocationRegistry
+    from kernel.models import GovernanceDecision, Principal
+
+    class Deny:
+        def evaluate(self, proposal, context):
+            return GovernanceDecision(
+                decision="DENY",
+                proposal_id=proposal.id,
+                policy_version="test-1",
+                reason="denied",
+            )
+
+    class Adapter:
+        def execute(self, authorization, proposal):
+            raise AssertionError("denied request reached execution")
+
+    store = SQLiteEventStore()
+    principal = Principal(id=new_id(), kind="test")
+    event = process(
+        principal,
+        operation="test",
+        resource="resource",
+        parameters={},
+        governance=Deny(),
+        adapter=Adapter(),
+        store=store,
+        revocations=RevocationRegistry(),
+    )
+
+    assert event.event_type == "request.denied"
+    assert store.get_state(str(event.request_id)) == ('{"status":"DENIED"}', event.sequence)
+
+
+def test_state_sequence_must_not_move_backwards() -> None:
+    store = SQLiteEventStore()
+    first = store.append_with_state(
+        event_id="event-1",
+        event_type="execution.succeeded",
+        timestamp="2026-01-01T00:00:00+00:00",
+        payload={"request_id": "request-1"},
+        subject="request-1",
+        state={"status": "SUCCEEDED"},
+    )
+
+    import pytest
+    from kernel.durability import StateSequenceError
+
+    with pytest.raises(StateSequenceError):
+        store._connection.execute(
+            "INSERT INTO state(subject,state_json,event_sequence) VALUES(?,?,?) "
+            "ON CONFLICT(subject) DO UPDATE SET event_sequence=excluded.event_sequence",
+            ("request-1", '{"status":"FAILED"}', first - 1),
+        )
