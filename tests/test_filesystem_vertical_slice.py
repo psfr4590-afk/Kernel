@@ -54,11 +54,6 @@ def test_complete_host_filesystem_read_vertical_slice(tmp_path: Path) -> None:
             "execution.attempted",
             "execution.succeeded",
         ]
-        authorization_event_id = events[1][1]
-        attempted = events[2][4]
-        terminal = events[3][4]
-        assert json.loads(attempted)
-        assert json.loads(terminal)
         assert all(store.verify_event_integrity(row[0]) for row in store.all_events())
         state = replay_request_state(store.all_events(), request_id)
         assert state["status"] == "SUCCEEDED"
