@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from typing import Any, Mapping
 
@@ -10,6 +11,10 @@ from .json import canonical_json
 
 class StateSequenceError(ValueError):
     """Raised when state would move backwards or be written twice at one sequence."""
+
+
+class AuthorizationIssuanceError(ValueError):
+    """Raised when durable authorization issuance conflicts with prior evidence."""
 
 
 class SQLiteEventStore:
@@ -104,7 +109,7 @@ class SQLiteEventStore:
         correlation_id: str | None,
         provenance: Mapping[str, Any] | None = None,
     ) -> int:
-        """Persist an authorization and its issuance evidence atomically."""
+        """Persist an authorization and its issuance evidence atomically and idempotently."""
         payload = {
             "authorization_id": str(authorization.id),
             "proposal_id": str(authorization.proposal_id),
@@ -117,7 +122,28 @@ class SQLiteEventStore:
         }
         event_data = canonical_json(payload)
         provenance_data = canonical_json(provenance or {})
+        authorization_id = str(authorization.id)
         try:
+            existing = self._connection.execute(
+                """
+                SELECT principal_id,proposal_id,operation,resource,issued_at,expires_at
+                FROM authorizations WHERE authorization_id=?
+                """,
+                (authorization_id,),
+            ).fetchone()
+            expected_record = (
+                str(authorization.principal_id),
+                str(authorization.proposal_id),
+                authorization.operation,
+                authorization.resource,
+                authorization.issued_at.isoformat(),
+                authorization.expires_at.isoformat(),
+            )
+            if existing is not None and tuple(existing) != expected_record:
+                raise AuthorizationIssuanceError(
+                    "authorization id already exists with conflicting authority"
+                )
+
             self._connection.execute(
                 """
                 INSERT INTO authorizations(
@@ -127,7 +153,7 @@ class SQLiteEventStore:
                 ON CONFLICT(authorization_id) DO NOTHING
                 """,
                 (
-                    str(authorization.id),
+                    authorization_id,
                     str(authorization.principal_id),
                     str(authorization.proposal_id),
                     authorization.operation,
@@ -136,6 +162,39 @@ class SQLiteEventStore:
                     authorization.expires_at.isoformat(),
                 ),
             )
+
+            issuance_rows = self._connection.execute(
+                """
+                SELECT sequence,event_id,timestamp,payload,schema_version,
+                       principal_id,request_id,correlation_id,provenance
+                FROM events
+                WHERE event_type='authorization.issued'
+                ORDER BY sequence
+                """
+            ).fetchall()
+            for row in issuance_rows:
+                try:
+                    recorded_payload = json.loads(row[3])
+                except (TypeError, json.JSONDecodeError) as exc:
+                    raise AuthorizationIssuanceError(
+                        "existing authorization issuance evidence is not valid JSON"
+                    ) from exc
+                if recorded_payload.get("authorization_id") != authorization_id:
+                    continue
+                if (
+                    recorded_payload != payload
+                    or row[4] != 1
+                    or row[5] != str(authorization.principal_id)
+                    or row[6] != request_id
+                    or row[7] != correlation_id
+                    or row[8] != provenance_data
+                ):
+                    raise AuthorizationIssuanceError(
+                        "authorization id already has conflicting issuance evidence"
+                    )
+                self._connection.commit()
+                return int(row[0])
+
             cursor = self._connection.execute(
                 """
                 INSERT INTO events(
