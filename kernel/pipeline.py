@@ -68,7 +68,7 @@ def process(
         revocations=revocations,
     )
     event = Event(
-        id=__import__("kernel.models", fromlist=["new_id"]).new_id(),
+        id=new_id(),
         sequence=0,
         event_type=f"execution.{outcome.status.lower()}",
         timestamp=utc_now(),
