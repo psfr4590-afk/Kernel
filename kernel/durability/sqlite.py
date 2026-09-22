@@ -37,6 +37,15 @@ class SQLiteEventStore:
         )
         self._connection.execute(
             """
+            CREATE TABLE IF NOT EXISTS revocations (
+                authorization_id TEXT PRIMARY KEY,
+                revoked_at TEXT NOT NULL,
+                reason TEXT NOT NULL
+            )
+            """
+        )
+        self._connection.execute(
+            """
             CREATE TABLE IF NOT EXISTS state (
                 subject TEXT PRIMARY KEY,
                 state_json TEXT NOT NULL,
@@ -162,6 +171,53 @@ class SQLiteEventStore:
             (subject,),
         ).fetchone()
         return None if row is None else (str(row[0]), int(row[1]))
+
+    def revoke_authorization(
+        self,
+        authorization_id: str,
+        revoked_at: str,
+        reason: str,
+        *,
+        event_id: str,
+        principal_id: str | None = None,
+        request_id: str | None = None,
+        correlation_id: str | None = None,
+        provenance: Mapping[str, Any] | None = None,
+    ) -> int:
+        """Durably revoke authority and record revocation evidence atomically."""
+        event_data = canonical_json({
+            "authorization_id": authorization_id,
+            "reason": reason,
+            "request_id": request_id,
+        })
+        provenance_data = canonical_json(provenance or {})
+        try:
+            self._connection.execute(
+                "INSERT INTO revocations(authorization_id,revoked_at,reason) VALUES(?,?,?)",
+                (authorization_id, revoked_at, reason),
+            )
+            cursor = self._connection.execute(
+                """
+                INSERT INTO events(
+                    event_id,event_type,timestamp,payload,schema_version,
+                    principal_id,request_id,correlation_id,provenance
+                ) VALUES(?,?,?,?,?,?,?,?,?)
+                """,
+                (event_id, "authorization.revoked", revoked_at, event_data, 1,
+                 principal_id, request_id, correlation_id, provenance_data),
+            )
+            self._connection.commit()
+            return int(cursor.lastrowid)
+        except Exception:
+            self._connection.rollback()
+            raise
+
+    def is_authorization_revoked(self, authorization_id: str) -> bool:
+        row = self._connection.execute(
+            "SELECT 1 FROM revocations WHERE authorization_id=?",
+            (authorization_id,),
+        ).fetchone()
+        return row is not None
 
     def close(self) -> None:
         self._connection.close()
