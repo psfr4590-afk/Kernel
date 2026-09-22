@@ -11,9 +11,9 @@ Finalize principal, identity evidence, context, proposal, governance, authorizat
 Exit evidence: contracts and adversarial test definitions exist for authority boundaries.
 
 ## Phase 2: Governance and Decision Contracts
-Finalize policy representation, evaluation semantics, policy versioning, conditions, approvals, and decision provenance required by the first implementation slice.
+Define the governance boundary, policy inputs/outputs, policy provenance, versioning, conditions, approvals, and decision evidence without prematurely selecting a policy language or evaluation engine.
 
-Exit evidence: governance decisions are attributable and distinguishable from execution.
+Exit evidence: governance decisions are attributable and distinguishable from execution; OD-007 and OD-008 remain explicitly deferred unless the first executable slice requires them.
 
 ## Phase 3: Durability and State Contracts
 Finalize event schema, causation/correlation, persistence semantics, integrity requirements, ordering, replay, state materialization, and recovery evidence required by the first implementation slice.
@@ -26,9 +26,9 @@ Finalize the effect-boundary contract, pre-execution checks, outcome semantics, 
 Exit evidence: no designed consequential path bypasses authorization.
 
 ## Phase 5: Implementation Entry
-Settle only the implementation-blocking ADRs. Establish the repository's executable structure, dependency policy, configuration model, reproducible development/test commands, and initial test harness.
+Settle only implementation-blocking ADRs. Establish executable repository structure, dependency policy, configuration model, reproducible development/test commands, and initial test harness.
 
-Exit evidence: a minimal executable skeleton exists without weakening the architectural contracts.
+Exit evidence: a minimal executable skeleton exists without weakening architectural contracts.
 
 ## Phase 6: Vertical Slice Implementation
 Implement the smallest complete end-to-end path:
@@ -40,7 +40,7 @@ Include denial, invalid authorization, scope mismatch, and bypass tests.
 Exit evidence: the slice is implemented and its applicable contracts are verified by executable tests.
 
 ## Phase 7: Recovery and Resilience
-Implement interruption, persistence failure, restart, uncertainty, reconciliation, duplicate handling, and state reconstruction according to the established contracts.
+Implement interruption, persistence failure, restart, uncertainty, reconciliation, duplicate handling, and state reconstruction according to established contracts.
 
 Exit evidence: fault-injection and recovery tests demonstrate the defined guarantees.
 
