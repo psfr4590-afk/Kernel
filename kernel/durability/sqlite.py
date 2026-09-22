@@ -65,7 +65,8 @@ class SQLiteEventStore:
                 operation TEXT NOT NULL,
                 resource TEXT NOT NULL,
                 issued_at TEXT NOT NULL,
-                expires_at TEXT NOT NULL
+                expires_at TEXT NOT NULL,
+                parameters_fingerprint TEXT
             )
             """
         )
@@ -93,6 +94,7 @@ class SQLiteEventStore:
             """
         )
         self._ensure_integrity_hash_column()
+        self._ensure_authorization_fingerprint_column()
         self._connection.commit()
 
     def _ensure_integrity_hash_column(self) -> None:
@@ -227,6 +229,18 @@ class SQLiteEventStore:
             self._connection.rollback()
             raise
 
+    def _ensure_authorization_fingerprint_column(self) -> None:
+        columns = {
+            row[1]
+            for row in self._connection.execute(
+                "PRAGMA table_info(authorizations)"
+            ).fetchall()
+        }
+        if "parameters_fingerprint" not in columns:
+            self._connection.execute(
+                "ALTER TABLE authorizations ADD COLUMN parameters_fingerprint TEXT"
+            )
+
     def save_authorization(self, authorization: Any) -> None:
         """Persist an issued authorization record idempotently."""
         try:
@@ -234,8 +248,8 @@ class SQLiteEventStore:
                 """
                 INSERT INTO authorizations(
                     authorization_id,principal_id,proposal_id,operation,
-                    resource,issued_at,expires_at
-                ) VALUES(?,?,?,?,?,?,?)
+                    resource,issued_at,expires_at,parameters_fingerprint
+                ) VALUES(?,?,?,?,?,?,?,?)
                 ON CONFLICT(authorization_id) DO NOTHING
                 """,
                 (
@@ -246,6 +260,7 @@ class SQLiteEventStore:
                     authorization.resource,
                     authorization.issued_at.isoformat(),
                     authorization.expires_at.isoformat(),
+                    authorization.parameters_fingerprint,
                 ),
             )
             self._connection.commit()
@@ -273,6 +288,7 @@ class SQLiteEventStore:
             "resource": authorization.resource,
             "issued_at": authorization.issued_at.isoformat(),
             "expires_at": authorization.expires_at.isoformat(),
+            "parameters_fingerprint": authorization.parameters_fingerprint,
         }
         event_data = canonical_json(payload)
         provenance_data = canonical_json(provenance or {})
@@ -280,7 +296,7 @@ class SQLiteEventStore:
         try:
             existing = self._connection.execute(
                 """
-                SELECT principal_id,proposal_id,operation,resource,issued_at,expires_at
+                SELECT principal_id,proposal_id,operation,resource,issued_at,expires_at,parameters_fingerprint
                 FROM authorizations WHERE authorization_id=?
                 """,
                 (authorization_id,),
@@ -292,6 +308,7 @@ class SQLiteEventStore:
                 authorization.resource,
                 authorization.issued_at.isoformat(),
                 authorization.expires_at.isoformat(),
+                authorization.parameters_fingerprint,
             )
             if existing is not None and tuple(existing) != expected_record:
                 raise AuthorizationIssuanceError(
@@ -302,8 +319,8 @@ class SQLiteEventStore:
                 """
                 INSERT INTO authorizations(
                     authorization_id,principal_id,proposal_id,operation,
-                    resource,issued_at,expires_at
-                ) VALUES(?,?,?,?,?,?,?)
+                    resource,issued_at,expires_at,parameters_fingerprint
+                ) VALUES(?,?,?,?,?,?,?,?)
                 ON CONFLICT(authorization_id) DO NOTHING
                 """,
                 (
@@ -314,6 +331,7 @@ class SQLiteEventStore:
                     authorization.resource,
                     authorization.issued_at.isoformat(),
                     authorization.expires_at.isoformat(),
+                    authorization.parameters_fingerprint,
                 ),
             )
 
