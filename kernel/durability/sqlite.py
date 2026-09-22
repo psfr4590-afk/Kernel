@@ -94,6 +94,73 @@ class SQLiteEventStore:
             self._connection.rollback()
             raise
 
+    def append_authorization_issued(
+        self,
+        authorization: Any,
+        *,
+        event_id: str,
+        timestamp: str,
+        request_id: str,
+        correlation_id: str | None,
+        provenance: Mapping[str, Any] | None = None,
+    ) -> int:
+        """Persist an authorization and its issuance evidence atomically."""
+        payload = {
+            "authorization_id": str(authorization.id),
+            "proposal_id": str(authorization.proposal_id),
+            "principal_id": str(authorization.principal_id),
+            "request_id": request_id,
+            "operation": authorization.operation,
+            "resource": authorization.resource,
+            "issued_at": authorization.issued_at.isoformat(),
+            "expires_at": authorization.expires_at.isoformat(),
+        }
+        event_data = canonical_json(payload)
+        provenance_data = canonical_json(provenance or {})
+        try:
+            self._connection.execute(
+                """
+                INSERT INTO authorizations(
+                    authorization_id,principal_id,proposal_id,operation,
+                    resource,issued_at,expires_at
+                ) VALUES(?,?,?,?,?,?,?)
+                ON CONFLICT(authorization_id) DO NOTHING
+                """,
+                (
+                    str(authorization.id),
+                    str(authorization.principal_id),
+                    str(authorization.proposal_id),
+                    authorization.operation,
+                    authorization.resource,
+                    authorization.issued_at.isoformat(),
+                    authorization.expires_at.isoformat(),
+                ),
+            )
+            cursor = self._connection.execute(
+                """
+                INSERT INTO events(
+                    event_id,event_type,timestamp,payload,schema_version,
+                    principal_id,request_id,correlation_id,provenance
+                ) VALUES(?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    event_id,
+                    "authorization.issued",
+                    timestamp,
+                    event_data,
+                    1,
+                    str(authorization.principal_id),
+                    request_id,
+                    correlation_id,
+                    provenance_data,
+                ),
+            )
+            self._connection.commit()
+            return int(cursor.lastrowid)
+        except Exception:
+            self._connection.rollback()
+            raise
+
     def get_authorization(self, authorization_id: str) -> Mapping[str, Any] | None:
         row = self._connection.execute(
             """
