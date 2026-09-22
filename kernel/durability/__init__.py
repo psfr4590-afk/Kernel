@@ -13,4 +13,5 @@ __all__ = [
     "assess_request_recovery",
     "canonical_json",
     "replay_request_state",
+    "record_unknown_recovery",
 ]
