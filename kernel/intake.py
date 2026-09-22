@@ -29,6 +29,7 @@ def receive_request(
         resource=resource,
         parameters=dict(parameters),
         received_at=utc_now(),
+        idempotency_key=str(new_id()),
     )
 
 
