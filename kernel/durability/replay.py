@@ -8,6 +8,13 @@ from typing import Any, Sequence
 
 EventRow = Sequence[Any]
 
+TERMINAL_EXECUTION_EVENTS = frozenset({
+    "execution.succeeded",
+    "execution.failed",
+    "execution.partial",
+    "execution.blocked",
+})
+
 
 def replay_request_state(events: list[EventRow], request_id: str) -> dict[str, Any]:
     """Reconstruct the latest known request state without creating effects."""
@@ -24,7 +31,7 @@ def replay_request_state(events: list[EventRow], request_id: str) -> dict[str, A
                 "event_sequence": sequence,
                 "recovery": True,
             }
-        elif event_type.startswith("execution.") and "outcome" in data:
+        elif event_type in TERMINAL_EXECUTION_EVENTS and "outcome" in data:
             state = {
                 "status": data["outcome"],
                 "event_sequence": sequence,
