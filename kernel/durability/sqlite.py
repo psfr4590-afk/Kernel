@@ -579,6 +579,15 @@ class SQLiteEventStore:
         ).fetchall()
         return [(int(a), str(b), str(c), str(d), str(e)) for a, b, c, d, e in rows]
 
+    def get_event(self, sequence: int) -> tuple[int, str, str, str, str] | None:
+        row = self._connection.execute(
+            "SELECT sequence,event_id,event_type,timestamp,payload FROM events WHERE sequence=?",
+            (sequence,),
+        ).fetchone()
+        return None if row is None else (
+            int(row[0]), str(row[1]), str(row[2]), str(row[3]), str(row[4])
+        )
+
     def get_state(self, subject: str) -> tuple[str, int] | None:
         row = self._connection.execute(
             "SELECT state_json,event_sequence FROM state WHERE subject=?",
