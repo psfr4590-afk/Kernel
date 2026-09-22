@@ -46,6 +46,19 @@ class SQLiteEventStore:
         )
         self._connection.execute(
             """
+            CREATE TABLE IF NOT EXISTS authorizations (
+                authorization_id TEXT PRIMARY KEY,
+                principal_id TEXT NOT NULL,
+                proposal_id TEXT NOT NULL,
+                operation TEXT NOT NULL,
+                resource TEXT NOT NULL,
+                issued_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL
+            )
+            """
+        )
+        self._connection.execute(
+            """
             CREATE TABLE IF NOT EXISTS state (
                 subject TEXT PRIMARY KEY,
                 state_json TEXT NOT NULL,
@@ -54,6 +67,53 @@ class SQLiteEventStore:
             """
         )
         self._connection.commit()
+
+    def save_authorization(self, authorization: Any) -> None:
+        """Persist an issued authorization record idempotently."""
+        try:
+            self._connection.execute(
+                """
+                INSERT INTO authorizations(
+                    authorization_id,principal_id,proposal_id,operation,
+                    resource,issued_at,expires_at
+                ) VALUES(?,?,?,?,?,?,?)
+                ON CONFLICT(authorization_id) DO NOTHING
+                """,
+                (
+                    str(authorization.id),
+                    str(authorization.principal_id),
+                    str(authorization.proposal_id),
+                    authorization.operation,
+                    authorization.resource,
+                    authorization.issued_at.isoformat(),
+                    authorization.expires_at.isoformat(),
+                ),
+            )
+            self._connection.commit()
+        except Exception:
+            self._connection.rollback()
+            raise
+
+    def get_authorization(self, authorization_id: str) -> Mapping[str, Any] | None:
+        row = self._connection.execute(
+            """
+            SELECT authorization_id,principal_id,proposal_id,operation,
+                   resource,issued_at,expires_at
+            FROM authorizations WHERE authorization_id=?
+            """,
+            (authorization_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "id": row[0],
+            "principal_id": row[1],
+            "proposal_id": row[2],
+            "operation": row[3],
+            "resource": row[4],
+            "issued_at": row[5],
+            "expires_at": row[6],
+        }
 
     def append(
         self,
