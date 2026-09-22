@@ -6,7 +6,6 @@ import json
 import sqlite3
 from typing import Any, Mapping
 
-from .audit import event_integrity_hash, verify_event_integrity
 from .json import canonical_json
 
 
