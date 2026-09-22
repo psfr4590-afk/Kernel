@@ -6,6 +6,7 @@ import json
 import sqlite3
 from typing import Any, Mapping
 
+from .audit import event_integrity_hash, verify_event_integrity
 from .json import canonical_json
 
 
@@ -36,7 +37,8 @@ class SQLiteEventStore:
                 request_id TEXT,
                 causation_id TEXT,
                 correlation_id TEXT,
-                provenance TEXT NOT NULL DEFAULT '{}'
+                provenance TEXT NOT NULL DEFAULT '{}',
+                integrity_hash TEXT
             )
             """
         )
@@ -71,7 +73,13 @@ class SQLiteEventStore:
             )
             """
         )
+        self._ensure_integrity_hash_column()
         self._connection.commit()
+
+    def _ensure_integrity_hash_column(self) -> None:
+        columns = {row[1] for row in self._connection.execute("PRAGMA table_info(events)").fetchall()}
+        if "integrity_hash" not in columns:
+            self._connection.execute("ALTER TABLE events ADD COLUMN integrity_hash TEXT")
 
     def save_authorization(self, authorization: Any) -> None:
         """Persist an issued authorization record idempotently."""
