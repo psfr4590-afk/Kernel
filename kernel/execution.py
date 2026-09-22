@@ -14,9 +14,13 @@ def execute(
     *,
     now,
     revocations: RevocationRegistry | None = None,
+    on_attempt=None,
 ) -> Outcome:
     try:
         enforce_authorization(authorization, proposal, now, revocations)
     except AuthorizationError:
         return Outcome(new_id(), "BLOCKED", {"reason": "authorization rejected"})
+    attempt_id = new_id()
+    if on_attempt is not None:
+        on_attempt(attempt_id)
     return adapter.execute(authorization, proposal.parameters)
