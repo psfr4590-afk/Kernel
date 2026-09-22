@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import json
 from uuid import uuid4
 
 import pytest
@@ -54,7 +55,7 @@ def test_connected_allow_path_persists_authorization_lineage():
         assert events[2][2] == "execution.succeeded"
         assert event.payload["authorization_issued_sequence"] == events[0][0]
         assert events[1][4] and "attempt_id" in events[1][4]
-        assert event.payload["attempt_id"] == __import__("json").loads(events[1][4])["attempt_id"]
+        assert event.payload["attempt_id"] == json.loads(events[1][4])["attempt_id"]
         authorization_id = event.payload["authorization_id"]
         assert store.get_authorization(authorization_id) is not None
         assert adapter.calls == 1
@@ -221,5 +222,36 @@ def test_conflicting_authorization_issuance_is_rejected():
                 provenance={"source": "test"},
             )
         assert len(store.all_events()) == 1
+    finally:
+        store.close()
+
+
+class RaisingAdapter:
+    def execute(self, authorization, parameters):
+        raise RuntimeError("simulated interruption after effect invocation")
+
+
+def test_adapter_failure_leaves_attempt_evidence_durable():
+    store = SQLiteEventStore()
+    try:
+        with pytest.raises(RuntimeError, match="simulated interruption"):
+            process(
+                Principal(uuid4(), "human"),
+                operation="test.execute",
+                resource="local:test",
+                parameters={},
+                governance=Allow(),
+                adapter=RaisingAdapter(),
+                store=store,
+            )
+        events = store.all_events()
+        assert [row[2] for row in events] == [
+            "authorization.issued",
+            "execution.attempted",
+        ]
+        attempt = json.loads(events[1][4])
+        assert attempt["authorization_issued_sequence"] == events[0][0]
+        assert attempt["attempt_id"]
+        assert store.get_state(attempt["request_id"]) is None
     finally:
         store.close()
