@@ -410,7 +410,7 @@ class SQLiteEventStore:
         row = self._connection.execute(
             """
             SELECT authorization_id,principal_id,proposal_id,operation,
-                   resource,issued_at,expires_at
+                   resource,issued_at,expires_at,parameters_fingerprint
             FROM authorizations WHERE authorization_id=?
             """,
             (authorization_id,),
@@ -424,7 +424,8 @@ class SQLiteEventStore:
             "operation": row[3],
             "resource": row[4],
             "issued_at": row[5],
-            "expires_at": row[6],
+            "expires_at": row[5],
+            "parameters_fingerprint": row[6] or "",
         }
 
     def append(
