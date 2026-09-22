@@ -1,7 +1,8 @@
-import json
+import base64
 from pathlib import Path
 
 from kernel import process
+from kernel.adapters.filesystem import FilesystemReadAdapter
 from kernel.durability import SQLiteEventStore, replay_request_state, rematerialize_request_state
 from kernel.identity import LocalCryptographicIdentityProvider
 from kernel.models import GovernanceDecision
@@ -29,9 +30,7 @@ def test_complete_host_filesystem_read_vertical_slice(tmp_path: Path) -> None:
             resource=str(root),
             parameters={"path": "hello.txt"},
             governance=AllowFilesystemRead(),
-            adapter=__import__(
-                "kernel.adapters.filesystem", fromlist=["FilesystemReadAdapter"]
-            ).FilesystemReadAdapter(root),
+            adapter=FilesystemReadAdapter(root),
             store=store,
             identity_provider=identity,
             idempotency_key="filesystem-read-1",
@@ -40,11 +39,9 @@ def test_complete_host_filesystem_read_vertical_slice(tmp_path: Path) -> None:
 
         assert event.event_type == "execution.succeeded"
         assert event.payload["evidence"]["size"] == 12
-        assert json.loads(
-            __import__("base64").b64decode(
-                event.payload["evidence"]["data_base64"]
-            ).decode("utf-8")
-        ) if False else True
+        assert base64.b64decode(
+            event.payload["evidence"]["data_base64"]
+        ) == b"hello kernel"
         assert [row[2] for row in store.all_events()] == [
             "operation.claimed",
             "authorization.issued",
