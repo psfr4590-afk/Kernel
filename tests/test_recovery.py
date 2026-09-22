@@ -1,8 +1,11 @@
+import pytest
+
 from kernel.durability import (
     SQLiteEventStore,
     assess_request_recovery,
     record_interruption,
     record_unknown_recovery,
+    rematerialize_request_state,
 )
 
 
@@ -174,8 +177,6 @@ def test_recovery_rematerializes_derived_state_from_authoritative_history() -> N
         )
         store._connection.commit()
 
-        from kernel.durability import rematerialize_request_state
-
         assessment = rematerialize_request_state(store, request_id)
 
         assert assessment.status == "SUCCEEDED"
@@ -199,7 +200,7 @@ def test_rematerialization_rejects_non_authoritative_sequence_without_mutation()
             payload={"request_id": request_id},
         )
         before = store.get_state(request_id)
-        with __import__("pytest").raises(ValueError):
+        with pytest.raises(ValueError):
             store.rematerialize_state(
                 subject=request_id,
                 state={"status": "DENIED"},
