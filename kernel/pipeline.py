@@ -6,7 +6,7 @@ from datetime import timedelta
 from typing import Any, Mapping
 
 from kernel.authority import RevocationRegistry, issue_authorization
-from kernel.durability import IdempotencyConflictError, SQLiteEventStore
+from kernel.durability import SQLiteEventStore
 from kernel.execution import execute
 from kernel.intake import build_proposal, capture_context, receive_request
 from kernel.interfaces import ExecutionAdapter, GovernanceEvaluator, IdentityProvider
