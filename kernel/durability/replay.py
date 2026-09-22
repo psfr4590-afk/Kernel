@@ -14,7 +14,7 @@ def replay_request_state(events: list[tuple[int, str, str, str, str]], request_i
             continue
         if event_type == "request.denied":
             state = {"status": "DENIED", "event_sequence": sequence}
-        elif event_type.startswith("execution."):
+        elif event_type.startswith("execution.") and "outcome" in data:
             state = {
                 "status": data["outcome"],
                 "event_sequence": sequence,
