@@ -113,3 +113,42 @@ def record_unknown_recovery(
         )
 
     return assess_request_recovery(store.all_events(), request_id)
+
+
+def record_interruption(
+    store: SQLiteEventStore,
+    request_id: str,
+    *,
+    timestamp: str,
+    reason: str,
+    principal_id: str | None = None,
+    correlation_id: str | None = None,
+) -> RecoveryAssessment:
+    """Record an interruption boundary without claiming an execution outcome."""
+    assessment = assess_request_recovery(store.all_events(), request_id)
+    if assessment.status in {"SUCCEEDED", "FAILED", "PARTIAL", "DENIED"}:
+        return assessment
+
+    existing = any(
+        row[2] == "recovery.interrupted"
+        and json.loads(row[4]).get("request_id") == request_id
+        for row in store.all_events()
+    )
+    if not existing:
+        event_id = uuid5(NAMESPACE_URL, f"kernel:recovery:interrupted:{request_id}")
+        store.append(
+            event_id=str(event_id),
+            event_type="recovery.interrupted",
+            timestamp=timestamp,
+            payload={
+                "request_id": request_id,
+                "status": "INTERRUPTED",
+                "reason": reason,
+            },
+            principal_id=principal_id,
+            request_id=request_id,
+            correlation_id=correlation_id or request_id,
+            provenance={"source": "kernel.recovery"},
+        )
+
+    return assess_request_recovery(store.all_events(), request_id)
