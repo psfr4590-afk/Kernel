@@ -3,17 +3,27 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, Sequence
 
 
-def replay_request_state(events: list[tuple[int, str, str, str, str]], request_id: str) -> dict[str, Any]:
+EventRow = Sequence[Any]
+
+
+def replay_request_state(events: list[EventRow], request_id: str) -> dict[str, Any]:
+    """Reconstruct the latest known request state without creating effects."""
     state: dict[str, Any] = {}
-    for sequence, _event_id, event_type, _timestamp, payload in events:
+    for sequence, _event_id, event_type, _timestamp, payload, *_metadata in events:
         data = json.loads(payload)
         if data.get("request_id") != request_id:
             continue
         if event_type == "request.denied":
             state = {"status": "DENIED", "event_sequence": sequence}
+        elif event_type == "recovery.unknown":
+            state = {
+                "status": "UNKNOWN",
+                "event_sequence": sequence,
+                "recovery": True,
+            }
         elif event_type.startswith("execution.") and "outcome" in data:
             state = {
                 "status": data["outcome"],
