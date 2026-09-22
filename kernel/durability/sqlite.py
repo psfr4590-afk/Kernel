@@ -579,6 +579,15 @@ class SQLiteEventStore:
         ).fetchall()
         return [(int(a), str(b), str(c), str(d), str(e)) for a, b, c, d, e in rows]
 
+    def latest_event_for_request(self, request_id: str) -> tuple[int, str, str, str, str] | None:
+        row = self._connection.execute(
+            "SELECT sequence,event_id,event_type,timestamp,payload FROM events WHERE request_id=? ORDER BY sequence DESC LIMIT 1",
+            (request_id,),
+        ).fetchone()
+        return None if row is None else (
+            int(row[0]), str(row[1]), str(row[2]), str(row[3]), str(row[4])
+        )
+
     def get_event(self, sequence: int) -> tuple[int, str, str, str, str] | None:
         row = self._connection.execute(
             "SELECT sequence,event_id,event_type,timestamp,payload FROM events WHERE sequence=?",
