@@ -60,3 +60,29 @@ def test_durable_revocation_blocks_authorization():
 
     with pytest.raises(AuthorizationError, match="revoked"):
         enforce_authorization(authorization, proposal, now, registry)
+
+
+def test_durable_revocation_survives_store_reopen(tmp_path) -> None:
+    database = tmp_path / "kernel.db"
+    store = SQLiteEventStore(str(database))
+    authorization_id = uuid4()
+    try:
+        registry = SQLiteRevocationRegistry(store)
+        registry.revoke(
+            authorization_id,
+            datetime.now(timezone.utc).isoformat(),
+            "security response",
+            event_id=uuid4(),
+        )
+    finally:
+        store.close()
+
+    reopened = SQLiteEventStore(str(database))
+    try:
+        assert SQLiteRevocationRegistry(reopened).is_revoked(authorization_id)
+        assert [
+            row for row in reopened.all_events()
+            if row[2] == "authorization.revoked"
+        ]
+    finally:
+        reopened.close()
