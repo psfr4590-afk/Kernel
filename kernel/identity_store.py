@@ -8,7 +8,6 @@ import os
 from pathlib import Path
 from typing import Final
 
-from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
 
