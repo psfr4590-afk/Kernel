@@ -3,7 +3,12 @@ from uuid import uuid4
 
 import pytest
 
-from kernel.durability import CanonicalJSONError, SQLiteEventStore, canonical_json
+from kernel.durability import (
+    CanonicalJSONError,
+    SQLiteEventStore,
+    canonical_json,
+    replay_request_state,
+)
 
 
 def test_canonical_json_is_deterministic():
@@ -34,9 +39,6 @@ def test_sqlite_event_store_assigns_durable_sequence():
         assert [row[0] for row in store.all_events()] == [first, second]
     finally:
         store.close()
-
-
-from kernel.durability import replay_request_state
 
 
 def test_state_can_be_reconstructed_from_event_history():
