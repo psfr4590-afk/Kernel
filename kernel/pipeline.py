@@ -9,12 +9,12 @@ from kernel.authority import RevocationRegistry, issue_authorization
 from kernel.durability import SQLiteEventStore
 from kernel.execution import execute
 from kernel.intake import build_proposal, capture_context, receive_request
-from kernel.interfaces import ExecutionAdapter, GovernanceEvaluator
+from kernel.interfaces import ExecutionAdapter, GovernanceEvaluator, IdentityProvider
 from kernel.models import Event, Principal, new_id, utc_now
 
 
 def process(
-    principal: Principal,
+    principal: Principal | None = None,
     *,
     operation: str,
     resource: str,
@@ -23,8 +23,16 @@ def process(
     adapter: ExecutionAdapter,
     store: SQLiteEventStore,
     revocations: RevocationRegistry | None = None,
+    identity_provider: IdentityProvider | None = None,
 ):
-    """Process one request through the authority and effect boundaries."""
+    """Process one request through the identity, authority, and effect boundaries."""
+    if identity_provider is not None:
+        if principal is not None:
+            raise ValueError("provide either principal or identity_provider, not both")
+        principal = identity_provider.authenticate()
+    if principal is None:
+        raise ValueError("principal or identity_provider is required")
+
     request = receive_request(
         principal,
         operation=operation,
