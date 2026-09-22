@@ -17,6 +17,7 @@ def receive_request(
     operation: str,
     resource: str,
     parameters: Mapping[str, Any],
+    idempotency_key: str | None = None,
 ) -> Request:
     if not principal.authenticated:
         raise IntakeError("unauthenticated principal cannot submit a request")
@@ -29,7 +30,7 @@ def receive_request(
         resource=resource,
         parameters=dict(parameters),
         received_at=utc_now(),
-        idempotency_key=str(new_id()),
+        idempotency_key=idempotency_key or str(new_id()),
     )
 
 
