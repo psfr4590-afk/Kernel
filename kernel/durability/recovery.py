@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
-from uuid import NAMESPACE_URL, UUID, uuid5
+from uuid import NAMESPACE_URL, uuid5
 
 from .replay import replay_request_state
 from .sqlite import SQLiteEventStore
