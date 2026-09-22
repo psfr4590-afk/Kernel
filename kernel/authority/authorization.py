@@ -36,4 +36,5 @@ class SQLiteAuthorizationStore:
             resource=str(record["resource"]),
             issued_at=datetime.fromisoformat(str(record["issued_at"])),
             expires_at=datetime.fromisoformat(str(record["expires_at"])),
+            parameters_fingerprint=str(record["parameters_fingerprint"]),
         )
