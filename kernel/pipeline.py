@@ -72,6 +72,14 @@ def process(
     authorization = issue_authorization(
         proposal, decision, now, timedelta(minutes=1)
     )
+    authorization_sequence = store.append_authorization_issued(
+        authorization,
+        event_id=str(new_id()),
+        timestamp=now.isoformat(),
+        request_id=str(request.id),
+        correlation_id=str(request.id),
+        provenance={"source": "kernel.pipeline"},
+    )
     outcome = execute(
         authorization,
         proposal,
@@ -95,6 +103,7 @@ def process(
             "attempt_id": str(outcome.attempt_id),
             "principal_id": str(principal.id),
             "outcome": outcome.status,
+            "authorization_issued_sequence": authorization_sequence,
         },
     )
     sequence = store.append_with_state(
