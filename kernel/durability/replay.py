@@ -36,6 +36,7 @@ def replay_request_state(events: list[EventRow], request_id: str) -> dict[str, A
                 "status": data["outcome"],
                 "event_sequence": sequence,
                 "attempt_id": data.get("attempt_id"),
-                "evidence": data.get("evidence", {}),
             }
+            if "evidence" in data:
+                state["evidence"] = data["evidence"]
     return state
