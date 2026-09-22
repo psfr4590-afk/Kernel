@@ -20,4 +20,5 @@ __all__ = [
     "replay_request_state",
     "record_unknown_recovery",
     "record_interruption",
+    "rematerialize_request_state",
 ]
