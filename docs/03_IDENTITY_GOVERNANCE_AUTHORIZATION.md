@@ -67,7 +67,7 @@ Delegation semantics are defined by ADR-010.
 
 The architecture must define whether and how authorizations can be revoked, and what happens to operations already in progress.
 
-These semantics are UNKNOWN.
+Revocation semantics are defined by ADR-011.
 
 ## 9. Policy
 
