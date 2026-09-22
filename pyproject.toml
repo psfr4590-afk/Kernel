@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kernel"
+version = "0.1.0"
+description = "Local-first governed execution and durability kernel"
+requires-python = ">=3.11,<4"
+dependencies = [
+  "cryptography>=44,<47",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest>=8,<9",
+  "pytest-cov>=6,<7",
+  "ruff>=0.13,<0.14",
+]
+
+[tool.setuptools.packages.find]
+include = ["kernel*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
