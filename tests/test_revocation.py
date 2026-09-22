@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -47,7 +47,7 @@ def test_durable_revocation_blocks_authorization():
         proposal,
         GovernanceDecision("ALLOW", proposal.id, "test-policy", "permitted"),
         now,
-        __import__("datetime").timedelta(minutes=1),
+        timedelta(minutes=1),
     )
     registry.revoke(
         authorization.id,
