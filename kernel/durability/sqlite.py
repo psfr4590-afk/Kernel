@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from typing import Any, Mapping
@@ -16,6 +17,10 @@ class StateSequenceError(ValueError):
 
 class AuthorizationIssuanceError(ValueError):
     """Raised when durable authorization issuance conflicts with prior evidence."""
+
+
+class IdempotencyConflictError(ValueError):
+    """Raised when an idempotency key is reused for a different operation."""
 
 
 class SQLiteEventStore:
@@ -66,6 +71,20 @@ class SQLiteEventStore:
         )
         self._connection.execute(
             """
+            CREATE TABLE IF NOT EXISTS operations (
+                principal_id TEXT NOT NULL,
+                idempotency_key TEXT NOT NULL,
+                request_id TEXT NOT NULL UNIQUE,
+                operation TEXT NOT NULL,
+                resource TEXT NOT NULL,
+                request_fingerprint TEXT NOT NULL,
+                claimed_sequence INTEGER NOT NULL,
+                PRIMARY KEY(principal_id, idempotency_key)
+            )
+            """
+        )
+        self._connection.execute(
+            """
             CREATE TABLE IF NOT EXISTS state (
                 subject TEXT PRIMARY KEY,
                 state_json TEXT NOT NULL,
@@ -98,6 +117,116 @@ class SQLiteEventStore:
             "UPDATE events SET integrity_hash=? WHERE sequence=?",
             (integrity_hash, sequence),
         )
+    def claim_operation(
+        self,
+        *,
+        principal_id: str,
+        idempotency_key: str,
+        request_id: str,
+        operation: str,
+        resource: str,
+        parameters: Mapping[str, Any],
+        timestamp: str,
+        correlation_id: str | None,
+        provenance: Mapping[str, Any] | None = None,
+    ) -> tuple[str, int, bool]:
+        """Durably claim an operation identity before governance or execution."""
+        if not idempotency_key:
+            raise ValueError("idempotency_key is required")
+        fingerprint_data = {
+            "principal_id": principal_id,
+            "operation": operation,
+            "resource": resource,
+            "parameters": parameters,
+        }
+        fingerprint = hashlib.sha256(
+            canonical_json(fingerprint_data).encode("utf-8")
+        ).hexdigest()
+        payload = {
+            "request_id": request_id,
+            "principal_id": principal_id,
+            "idempotency_key": idempotency_key,
+            "operation": operation,
+            "resource": resource,
+            "request_fingerprint": fingerprint,
+        }
+        provenance_data = provenance or {}
+        try:
+            existing = self._connection.execute(
+                """
+                SELECT request_id,operation,resource,request_fingerprint,claimed_sequence
+                FROM operations WHERE principal_id=? AND idempotency_key=?
+                """,
+                (principal_id, idempotency_key),
+            ).fetchone()
+            if existing is not None:
+                if (
+                    existing[1] != operation
+                    or existing[2] != resource
+                    or existing[3] != fingerprint
+                ):
+                    raise IdempotencyConflictError(
+                        "idempotency key already identifies a different operation"
+                    )
+                return str(existing[0]), int(existing[4]), False
+
+            event_id = str(__import__("uuid").uuid4())
+            cursor = self._connection.execute(
+                """
+                INSERT INTO events(
+                    event_id,event_type,timestamp,payload,schema_version,
+                    principal_id,request_id,correlation_id,provenance
+                ) VALUES(?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    event_id,
+                    "operation.claimed",
+                    timestamp,
+                    canonical_json(payload),
+                    1,
+                    principal_id,
+                    request_id,
+                    correlation_id,
+                    canonical_json(provenance_data),
+                ),
+            )
+            sequence = int(cursor.lastrowid)
+            self._store_event_integrity_hash(
+                sequence,
+                event_id=event_id,
+                event_type="operation.claimed",
+                timestamp=timestamp,
+                payload=payload,
+                schema_version=1,
+                principal_id=principal_id,
+                request_id=request_id,
+                causation_id=None,
+                correlation_id=correlation_id,
+                provenance=provenance_data,
+            )
+            self._connection.execute(
+                """
+                INSERT INTO operations(
+                    principal_id,idempotency_key,request_id,operation,resource,
+                    request_fingerprint,claimed_sequence
+                ) VALUES(?,?,?,?,?,?,?)
+                """,
+                (
+                    principal_id,
+                    idempotency_key,
+                    request_id,
+                    operation,
+                    resource,
+                    fingerprint,
+                    sequence,
+                ),
+            )
+            self._connection.commit()
+            return request_id, sequence, True
+        except Exception:
+            self._connection.rollback()
+            raise
+
     def save_authorization(self, authorization: Any) -> None:
         """Persist an issued authorization record idempotently."""
         try:
