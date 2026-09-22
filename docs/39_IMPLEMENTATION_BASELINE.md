@@ -1,63 +1,55 @@
 # Kernel Implementation Baseline
 
-Status: IMPLEMENTATION ENTRY / RECOVERY, REVOCATION, AND PERSISTENCE CAPABILITY
+Status: VERIFIED FIRST VERTICAL SLICE
 Date: 2026-09-22
-
 
 ## Purpose
 
-This document marks the transition from architecture-only work to controlled implementation.
+This document records implemented behavior, not architectural intent. Claims here are limited to behavior covered by executable verification.
 
-The repository now contains the smallest executable Python package and test harness needed to begin the first vertical slice. This is not a claim that the Kernel is implemented.
-
-## Initial technology boundary
+## Implemented foundation
 
 - Language: Python, ADR-001.
 - Authoritative local storage: SQLite, ADR-002.
 - Event representation: canonical strict JSON, ADR-003.
-- Cryptography: AES-256 through `cryptography`, ADR-004.
-- Local key storage: encrypted local key store, ADR-006.
-- Authorization: short-lived scoped authorization, ADR-009.
-- State: snapshots plus event replay, ADR-018.
-- Audit integrity: cryptographic hashing, ADR-019.
-- Sensitive storage: controlled boundary, ADR-021.
-- Model providers: explicit separate intelligence boundaries, ADR-024.
-- External effects: authenticated but not inherently trusted, ADR-025.
+- Cryptography: cryptography, including Ed25519 identity and AES-256-GCM local key storage.
+- Authorization: short-lived, scoped, revocable authority, ADR-009 and ADR-011.
+- Event ordering and event/state atomicity: durable SQLite sequence and transactional state materialization.
+- Replay and recovery: deterministic replay, durable UNKNOWN recovery, interruption evidence, and state rematerialization.
+- Audit integrity: SHA-256 event integrity hashes with explicit algorithm/version metadata, ADR-019.
+- Idempotency: durable principal-scoped operation identity, canonical request fingerprinting, duplicate resolution, and conflict rejection, ADR-015.
+- External effects: narrow execution adapter boundary, ADR-014 and ADR-025.
 
-## Implementation posture
+## First vertical slice
 
-The initial implementation is deliberately single-process and local-first under ADR-023. Internal boundaries must remain explicit even when implemented as Python calls.
+The first executable consequential path is a constrained host.filesystem.read operation.
 
-The first vertical slice proves authority enforcement and durable evidence before peripheral capabilities are introduced.
+The verified path is:
 
-## Recovery capability
+identity -> request -> durable operation claim -> proposal -> context -> governance -> authorization -> durable authorization evidence -> execution attempt -> filesystem boundary -> terminal outcome -> durable event/state -> replay/recovery.
 
-The initial recovery capability is read-only and evidence-first. It reconstructs local request state from durable event history and reports UNKNOWN when the available evidence does not establish a terminal effect outcome. It does not retry, renew authorization, rewrite history, or create a new effect.
+The filesystem adapter is scoped to one configured root, rejects absolute paths and root escapes, requires a regular file, enforces a byte limit, and returns bounded result evidence. Authorization binds the consequential parameters by canonical fingerprint, so changing the authorized path after issuance is rejected.
 
-Recovery now includes durable UNKNOWN evidence recording and idempotent recovery assessment. Durable revocation is implemented. Recovery now records explicit interruption evidence without claiming an effect outcome. File-backed SQLite persistence and durable revocation survive store close/reopen verification. Recovery remains incomplete until operation-specific reconciliation and fault-injection verification are implemented.
+## Failure and recovery behavior
 
-## Dependency policy
+Execution attempts are durably recorded before the adapter is invoked. If the adapter raises or terminal persistence fails after dispatch, the durable history contains the attempt but does not fabricate SUCCESS. Recovery reconstructs the request as UNKNOWN and requires reconciliation until authoritative terminal evidence exists.
 
-Dependencies must be justified by an architectural or operational need. A library MUST NOT become an authority boundary merely because it provides convenient abstractions.
+Equivalent duplicate requests using the same principal, operation, and idempotency key resolve to the existing operation without a second effect. A materially different canonical request using the same key is rejected as an idempotency conflict. A later terminal event supersedes an earlier UNKNOWN assessment.
 
-Runtime dependencies are kept minimal. Test and development dependencies are separate.
+## Identity and local key storage
 
-No model runtime, provider SDK, web framework, queue, distributed service, plugin framework, or UI is required by this baseline.
+The pipeline can authenticate a principal through the local cryptographic identity provider before request intake. Identity keys can be persisted in an encrypted local AES-256-GCM store using a passphrase-derived key. Tampering and incorrect passphrases fail closed.
 
 ## Verification baseline
 
-Executable verification now covers authority enforcement, durable event/state behavior, deterministic replay, recovery assessment, durable UNKNOWN evidence, interruption evidence, durable revocation, and file-backed persistence across store reopen. These tests verify implemented slices only and do not establish complete Kernel security or authority coverage.
+CI verifies linting and the executable test suite after each implementation change. Current coverage includes authority boundaries, parameter binding, identity authentication, encrypted key storage, durable operation idempotency, execution lifecycle evidence, filesystem containment, event integrity, durable persistence, revocation, interruption, UNKNOWN recovery, replay, and state rematerialization.
 
-Future claims MUST use the repository evidence vocabulary:
+The evidence vocabulary remains:
+
 UNKNOWN, DESIGNED, IMPLEMENTED, VERIFIED, REGRESSED.
 
-## Current recovery boundary
+## Remaining architectural boundaries
 
-Recovery can inspect durable history, preserve uncertainty as UNKNOWN, durably record unresolved conditions and interruption evidence without creating an effect, and avoid duplicating the same recovery evidence on repeated inspection. A later authoritative terminal event supersedes the UNKNOWN assessment during replay. File-backed SQLite evidence and revocation state survive store close/reopen. Recovery does not retry, renew, or broaden authority.
+The policy language and policy evaluator remain intentionally deferred.
 
-## Next implementation target
-
-Implement the core domain contracts required for:
-request intake -> identity -> context -> proposal -> governance -> authorization -> execution boundary -> outcome -> event -> state.
-
-The policy language and evaluator remain intentionally deferred until the first implementation requirements make them necessary.
+Operation-specific external reconciliation, administrative authority, scheduling/resource domains beyond the first filesystem limit, isolation/IPC, richer observation interfaces, model-provider integration, and broader integration surfaces remain outside this first verified slice. They must be implemented without weakening the established identity, governance, authorization, execution, durability, integrity, and recovery boundaries.
