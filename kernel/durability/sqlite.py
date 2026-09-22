@@ -424,8 +424,8 @@ class SQLiteEventStore:
             "operation": row[3],
             "resource": row[4],
             "issued_at": row[5],
-            "expires_at": row[5],
-            "parameters_fingerprint": row[6] or "",
+            "expires_at": row[6],
+            "parameters_fingerprint": row[7] or "",
         }
 
     def append(
