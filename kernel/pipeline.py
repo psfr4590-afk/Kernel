@@ -42,6 +42,10 @@ def process(
             sequence=0,
             event_type="request.denied",
             timestamp=now,
+            principal_id=principal.id,
+            request_id=request.id,
+            correlation_id=request.id,
+            provenance={"source": "kernel.pipeline"},
             payload={
                 "request_id": str(request.id),
                 "proposal_id": str(proposal.id),
@@ -72,6 +76,10 @@ def process(
         sequence=0,
         event_type=f"execution.{outcome.status.lower()}",
         timestamp=utc_now(),
+        principal_id=principal.id,
+        request_id=request.id,
+        correlation_id=request.id,
+        provenance={"source": "kernel.pipeline"},
         payload={
             "request_id": str(request.id),
             "proposal_id": str(proposal.id),
@@ -89,4 +97,4 @@ def process(
         subject=str(request.id),
         state={"status": outcome.status},
     )
-    return event.__class__(**{**event.__dict__, "sequence": sequence})
+    return Event(**{**event.__dict__, "sequence": sequence})
