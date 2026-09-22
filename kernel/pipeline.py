@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+import json
+from datetime import datetime, timedelta
 from typing import Any, Mapping
+from uuid import UUID
 
 from kernel.authority import RevocationRegistry, issue_authorization
 from kernel.durability import SQLiteEventStore
@@ -57,16 +59,15 @@ def process(
         if existing_event is None:
             raise RuntimeError("claimed operation has no durable evidence")
         sequence, event_id, event_type, timestamp, payload = existing_event
-        import json
         return Event(
-            id=__import__("uuid").UUID(event_id),
+            id=UUID(event_id),
             sequence=sequence,
             event_type=event_type,
-            timestamp=__import__("datetime").datetime.fromisoformat(timestamp),
+            timestamp=datetime.fromisoformat(timestamp),
             payload=json.loads(payload),
             principal_id=principal.id,
-            request_id=__import__("uuid").UUID(existing_request_id),
-            correlation_id=__import__("uuid").UUID(existing_request_id),
+            request_id=UUID(existing_request_id),
+            correlation_id=UUID(existing_request_id),
             provenance={"source": "kernel.pipeline"},
         )
 
