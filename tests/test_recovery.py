@@ -229,3 +229,26 @@ def test_recovery_reconstructs_blocked_execution_as_terminal() -> None:
         assert assessment.requires_reconciliation is False
     finally:
         store.close()
+
+
+
+def test_replay_ignores_nonterminal_execution_events_even_with_outcome_field():
+    store = SQLiteEventStore()
+    try:
+        store.append(
+            event_id="event-nonterminal",
+            event_type="execution.observed",
+            timestamp="2026-01-01T00:00:00+00:00",
+            payload={
+                "request_id": "request-nonterminal",
+                "attempt_id": "attempt-1",
+                "outcome": "SUCCEEDED",
+            },
+        )
+        assessment = assess_request_recovery(
+            store.all_events(), "request-nonterminal"
+        )
+        assert assessment.status == "UNKNOWN"
+        assert assessment.requires_reconciliation is True
+    finally:
+        store.close()
