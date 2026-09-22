@@ -9,9 +9,10 @@ from .recovery import (
     rematerialize_request_state,
 )
 from .replay import replay_request_state
-from .sqlite import SQLiteEventStore, StateSequenceError
+from .sqlite import AuthorizationIssuanceError, SQLiteEventStore, StateSequenceError
 
 __all__ = [
+    "AuthorizationIssuanceError",
     "CanonicalJSONError",
     "RecoveryAssessment",
     "SQLiteEventStore",
