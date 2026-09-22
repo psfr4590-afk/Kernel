@@ -93,3 +93,29 @@ def test_recovery_does_not_override_later_terminal_evidence() -> None:
         assert assessment.requires_reconciliation is False
     finally:
         store.close()
+
+
+def test_interruption_evidence_is_idempotent_and_does_not_claim_success() -> None:
+    store = SQLiteEventStore()
+    try:
+        from kernel.durability import record_interruption
+
+        first = record_interruption(
+            store,
+            "request-2",
+            timestamp="2026-01-01T00:00:00+00:00",
+            reason="process stopped before outcome was recorded",
+        )
+        second = record_interruption(
+            store,
+            "request-2",
+            timestamp="2026-01-01T00:00:01+00:00",
+            reason="repeated interruption inspection",
+        )
+        assert first.status == "UNKNOWN"
+        assert second.status == "UNKNOWN"
+        assert second.requires_reconciliation is True
+        events = [row for row in store.all_events() if row[2] == "recovery.interrupted"]
+        assert len(events) == 1
+    finally:
+        store.close()
