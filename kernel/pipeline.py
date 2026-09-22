@@ -53,11 +53,19 @@ def process(
                 "reason": decision.reason,
             },
         )
-        sequence = store.append(
+        sequence = store.append_with_state(
             event_id=str(event.id),
             event_type=event.event_type,
             timestamp=event.timestamp.isoformat(),
             payload=event.payload,
+            subject=str(request.id),
+            state={"status": "DENIED"},
+            schema_version=event.schema_version,
+            principal_id=str(event.principal_id),
+            request_id=str(event.request_id),
+            causation_id=str(event.causation_id) if event.causation_id else None,
+            correlation_id=str(event.correlation_id) if event.correlation_id else None,
+            provenance=event.provenance,
         )
         return Event(**{**event.__dict__, "sequence": sequence})
 
@@ -96,5 +104,11 @@ def process(
         payload=event.payload,
         subject=str(request.id),
         state={"status": outcome.status},
+        schema_version=event.schema_version,
+        principal_id=str(event.principal_id),
+        request_id=str(event.request_id),
+        causation_id=str(event.causation_id) if event.causation_id else None,
+        correlation_id=str(event.correlation_id) if event.correlation_id else None,
+        provenance=event.provenance,
     )
     return Event(**{**event.__dict__, "sequence": sequence})
