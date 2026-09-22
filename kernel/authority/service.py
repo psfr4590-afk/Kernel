@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from kernel.models import Authorization, GovernanceDecision, Proposal, new_id
+from kernel.authority.revocation import RevocationRegistry
 
 
 class AuthorizationError(Exception):
@@ -38,6 +39,7 @@ def enforce_authorization(
     authorization: Authorization,
     proposal: Proposal,
     now: datetime,
+    revocations: RevocationRegistry | None = None,
 ) -> None:
     if authorization.principal_id != proposal.principal_id:
         raise AuthorizationError("principal mismatch")
@@ -49,3 +51,5 @@ def enforce_authorization(
         raise AuthorizationError("resource outside authorization scope")
     if not authorization.valid_at(now):
         raise AuthorizationError("authorization expired")
+    if revocations is not None and revocations.is_revoked(authorization.id):
+        raise AuthorizationError("authorization revoked")
