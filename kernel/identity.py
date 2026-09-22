@@ -46,6 +46,26 @@ class LocalCryptographicIdentityProvider:
     def generate(cls, *, kind: str = "local-process") -> "LocalCryptographicIdentityProvider":
         return cls(Ed25519PrivateKey.generate(), kind=kind)
 
+    @classmethod
+    def from_private_key(
+        cls,
+        private_key: bytes,
+        *,
+        kind: str = "local-process",
+    ) -> "LocalCryptographicIdentityProvider":
+        try:
+            key = Ed25519PrivateKey.from_private_bytes(private_key)
+        except (TypeError, ValueError) as exc:
+            raise IdentityError("invalid Ed25519 private key") from exc
+        return cls(key, kind=kind)
+
+    def export_private_key(self) -> bytes:
+        return self._private_key.private_bytes(
+            encoding=serialization.Encoding.Raw,
+            format=serialization.PrivateFormat.Raw,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+
     def authenticate(self) -> Principal:
         public_key = self._private_key.public_key()
         public_bytes = public_key.public_bytes(
