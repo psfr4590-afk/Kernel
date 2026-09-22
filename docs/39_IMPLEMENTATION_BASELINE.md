@@ -1,6 +1,6 @@
 # Kernel Implementation Baseline
 
-Status: IMPLEMENTATION ENTRY / RECOVERY AND REVOCATION CAPABILITY
+Status: IMPLEMENTATION ENTRY / RECOVERY, REVOCATION, AND PERSISTENCE CAPABILITY
 Date: 2026-09-22
 
 
@@ -34,7 +34,7 @@ The first vertical slice proves authority enforcement and durable evidence befor
 
 The initial recovery capability is read-only and evidence-first. It reconstructs local request state from durable event history and reports UNKNOWN when the available evidence does not establish a terminal effect outcome. It does not retry, renew authorization, rewrite history, or create a new effect.
 
-Recovery now includes durable UNKNOWN evidence recording and idempotent recovery assessment. Durable revocation is implemented. Recovery remains incomplete until operation-specific reconciliation, explicit interruption-state handling, and fault-injection verification are implemented.
+Recovery now includes durable UNKNOWN evidence recording and idempotent recovery assessment. Durable revocation is implemented. Recovery now records explicit interruption evidence without claiming an effect outcome. File-backed SQLite persistence and durable revocation survive store close/reopen verification. Recovery remains incomplete until operation-specific reconciliation and fault-injection verification are implemented.
 
 ## Dependency policy
 
@@ -46,14 +46,14 @@ No model runtime, provider SDK, web framework, queue, distributed service, plugi
 
 ## Verification baseline
 
-The first executable evidence consists only of package importability and the test harness. This does not verify any Kernel security or authority property.
+Executable verification now covers authority enforcement, durable event/state behavior, deterministic replay, recovery assessment, durable UNKNOWN evidence, interruption evidence, durable revocation, and file-backed persistence across store reopen. These tests verify implemented slices only and do not establish complete Kernel security or authority coverage.
 
 Future claims MUST use the repository evidence vocabulary:
 UNKNOWN, DESIGNED, IMPLEMENTED, VERIFIED, REGRESSED.
 
 ## Current recovery boundary
 
-Recovery can inspect durable history, preserve uncertainty as UNKNOWN, durably record that unresolved condition without creating an effect, and avoid duplicating the same recovery evidence on repeated inspection. A later authoritative terminal event supersedes the UNKNOWN assessment during replay. Recovery does not retry, renew, or broaden authority.
+Recovery can inspect durable history, preserve uncertainty as UNKNOWN, durably record unresolved conditions and interruption evidence without creating an effect, and avoid duplicating the same recovery evidence on repeated inspection. A later authoritative terminal event supersedes the UNKNOWN assessment during replay. File-backed SQLite evidence and revocation state survive store close/reopen. Recovery does not retry, renew, or broaden authority.
 
 ## Next implementation target
 
