@@ -8,6 +8,10 @@ from typing import Any, Mapping
 from .json import canonical_json
 
 
+class StateSequenceError(ValueError):
+    """Raised when state would move backwards or be written twice at one sequence."""
+
+
 class SQLiteEventStore:
     """Append immutable events and materialize derived state transactionally."""
 
@@ -21,7 +25,13 @@ class SQLiteEventStore:
                 event_id TEXT NOT NULL UNIQUE,
                 event_type TEXT NOT NULL,
                 timestamp TEXT NOT NULL,
-                payload TEXT NOT NULL
+                payload TEXT NOT NULL,
+                schema_version INTEGER NOT NULL DEFAULT 1,
+                principal_id TEXT,
+                request_id TEXT,
+                causation_id TEXT,
+                correlation_id TEXT,
+                provenance TEXT NOT NULL DEFAULT '{}'
             )
             """
         )
@@ -43,11 +53,34 @@ class SQLiteEventStore:
         event_type: str,
         timestamp: str,
         payload: Mapping[str, Any],
+        schema_version: int = 1,
+        principal_id: str | None = None,
+        request_id: str | None = None,
+        causation_id: str | None = None,
+        correlation_id: str | None = None,
+        provenance: Mapping[str, Any] | None = None,
     ) -> int:
         data = canonical_json(payload)
+        provenance_data = canonical_json(provenance or {})
         cursor = self._connection.execute(
-            "INSERT INTO events(event_id,event_type,timestamp,payload) VALUES(?,?,?,?)",
-            (event_id, event_type, timestamp, data),
+            """
+            INSERT INTO events(
+                event_id,event_type,timestamp,payload,schema_version,
+                principal_id,request_id,causation_id,correlation_id,provenance
+            ) VALUES(?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                event_id,
+                event_type,
+                timestamp,
+                data,
+                schema_version,
+                principal_id,
+                request_id,
+                causation_id,
+                correlation_id,
+                provenance_data,
+            ),
         )
         self._connection.commit()
         return int(cursor.lastrowid)
@@ -61,16 +94,45 @@ class SQLiteEventStore:
         payload: Mapping[str, Any],
         subject: str,
         state: Mapping[str, Any],
+        schema_version: int = 1,
+        principal_id: str | None = None,
+        request_id: str | None = None,
+        causation_id: str | None = None,
+        correlation_id: str | None = None,
+        provenance: Mapping[str, Any] | None = None,
     ) -> int:
         """Commit the event and its derived state together, or neither."""
         event_data = canonical_json(payload)
         state_data = canonical_json(state)
+        provenance_data = canonical_json(provenance or {})
         try:
             cursor = self._connection.execute(
-                "INSERT INTO events(event_id,event_type,timestamp,payload) VALUES(?,?,?,?)",
-                (event_id, event_type, timestamp, event_data),
+                """
+                INSERT INTO events(
+                    event_id,event_type,timestamp,payload,schema_version,
+                    principal_id,request_id,causation_id,correlation_id,provenance
+                ) VALUES(?,?,?,?,?,?,?,?,?,?)
+                """,
+                (
+                    event_id,
+                    event_type,
+                    timestamp,
+                    event_data,
+                    schema_version,
+                    principal_id,
+                    request_id,
+                    causation_id,
+                    correlation_id,
+                    provenance_data,
+                ),
             )
             sequence = int(cursor.lastrowid)
+            existing = self._connection.execute(
+                "SELECT event_sequence FROM state WHERE subject=?",
+                (subject,),
+            ).fetchone()
+            if existing is not None and sequence <= int(existing[0]):
+                raise StateSequenceError("state event sequence must increase monotonically")
             self._connection.execute(
                 """
                 INSERT INTO state(subject,state_json,event_sequence)
