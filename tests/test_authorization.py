@@ -66,3 +66,16 @@ def test_denial_cannot_issue_authorization():
 
     with pytest.raises(AuthorizationError):
         issue_authorization(proposal, decision, now, timedelta(minutes=1))
+
+
+def test_authorization_rejects_modified_parameters():
+    proposal = make_proposal()
+    now = datetime.now(timezone.utc)
+    decision = GovernanceDecision("ALLOW", proposal.id, "test-policy", "permitted")
+    auth = issue_authorization(proposal, decision, now, timedelta(minutes=1))
+    altered = proposal.__class__(
+        **{**proposal.__dict__, "parameters": {"path": "different.txt"}}
+    )
+
+    with pytest.raises(AuthorizationError):
+        enforce_authorization(auth, altered, now)
