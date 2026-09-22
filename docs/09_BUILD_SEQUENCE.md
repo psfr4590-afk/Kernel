@@ -1,56 +1,62 @@
 # Kernel Construction Sequence
 
-Status: ARCHITECTURAL ROADMAP. No implementation status is implied.
+Status: ARCHITECTURAL ROADMAP. Implementation order aligned with the whole-program engineering protocol.
 
 ## Phase 0: Foundation
-Produce architecture map, terminology, invariants, authority contract, evidence model, and explicit unknowns.
+Establish architecture, terminology, invariants, authority contract, evidence model, and explicit unknowns.
 
-## Phase 1: Identity and Authority
-Define principal, identity evidence, context, delegation, authorization, validity, and denial semantics.
+## Phase 1: Authority Contracts
+Finalize principal, identity evidence, context, proposal, governance, authorization, validity, denial, and proof obligations.
 
-Exit evidence: contracts and adversarial tests exist for authority boundaries.
+Exit evidence: contracts and adversarial test definitions exist for authority boundaries.
 
-## Phase 2: Governance
-Define policy representation, evaluation semantics, policy versioning, conditions, approvals, and decision provenance.
+## Phase 2: Governance and Decision Contracts
+Finalize policy representation, evaluation semantics, policy versioning, conditions, approvals, and decision provenance required by the first implementation slice.
 
 Exit evidence: governance decisions are attributable and distinguishable from execution.
 
-## Phase 3: Event and Durability
-Define event schema, causation/correlation, persistence, integrity, ordering, replay, retention, and state materialization.
+## Phase 3: Durability and State Contracts
+Finalize event schema, causation/correlation, persistence semantics, integrity requirements, ordering, replay, state materialization, and recovery evidence required by the first implementation slice.
 
-Exit evidence: restart and persistence-failure tests demonstrate defined guarantees.
+Exit evidence: restart and persistence-failure behavior is defined.
 
 ## Phase 4: Execution Boundary
-Define adapter contract, pre-execution checks, effect semantics, idempotency, partial outcomes, timeouts, and external reconciliation.
+Finalize the effect-boundary contract, pre-execution checks, outcome semantics, idempotency requirements, and adapter boundary required for the first executable effect.
 
-Exit evidence: no tested consequential path bypasses authorization.
+Exit evidence: no designed consequential path bypasses authorization.
 
-## Phase 5: Recovery
-Define interrupted-operation classification, reconciliation, uncertainty, compensation/rollback where applicable, and recovery authority.
+## Phase 5: Implementation Entry
+Settle only the implementation-blocking ADRs. Establish the repository's executable structure, dependency policy, configuration model, reproducible development/test commands, and initial test harness.
 
-Exit evidence: fault-injection tests cover interruption windows.
+Exit evidence: a minimal executable skeleton exists without weakening the architectural contracts.
 
-## Phase 6: Observation and Audit
-Define evidence views, reconstruction, access control, minimization, integrity, and export.
+## Phase 6: Vertical Slice Implementation
+Implement the smallest complete end-to-end path:
 
-Exit evidence: independent reconstruction can be performed from durable evidence.
+request -> identity -> context -> proposal -> governance -> authorization -> execution boundary -> outcome -> event -> state.
 
-## Phase 7: Verification
-Build structural, contract, behavioral, adversarial, durability, and regression suites.
+Include denial, invalid authorization, scope mismatch, and bypass tests.
 
-Exit evidence: each invariant maps to demonstrated evidence.
+Exit evidence: the slice is implemented and its applicable contracts are verified by executable tests.
 
-## Phase 8: Integration
-Connect intelligence adapters, application systems, and external effect mechanisms without weakening the kernel boundary.
+## Phase 7: Recovery and Resilience
+Implement interruption, persistence failure, restart, uncertainty, reconciliation, duplicate handling, and state reconstruction according to the established contracts.
 
-Exit evidence: end-to-end traces show proposal through authorization, execution, event, and state.
+Exit evidence: fault-injection and recovery tests demonstrate the defined guarantees.
 
-## Phase 9: Hardening
-Perform threat review, failure review, dependency review, data-handling review, recovery review, and adversarial regression.
+## Phase 8: Observation, Administration, and Extensions
+Implement governed observation/audit, administrative boundaries, resource controls, scheduling, isolation, IPC, memory, and extension/model interfaces as required by the integrated design.
 
-Exit evidence: unresolved risks are explicitly documented rather than hidden.
+Exit evidence: each introduced boundary has contract, failure, security, and regression evidence.
 
-## Phase 10: Implementation
-Only after the above contracts stabilize should implementation choices be finalized where the contracts require them.
+## Phase 9: Integration
+Connect intelligence providers, application interfaces, external adapters, and other effect mechanisms without weakening the Kernel boundary.
 
-This sequence intentionally prevents technology choices from silently becoming architecture.
+Exit evidence: end-to-end traces demonstrate proposal through authorization, execution, outcome, event, and state.
+
+## Phase 10: Hardening and Final Verification
+Perform adversarial review, failure review, dependency review, data-handling review, recovery review, performance evaluation where justified, security regression, documentation verification, and operational verification.
+
+Exit evidence: unresolved risks remain explicit; verified claims are backed by reproducible evidence.
+
+Implementation is therefore not postponed until after hardening. Hardening validates the implemented system against the architecture.
