@@ -50,7 +50,7 @@ def assess_request_recovery(
         )
 
     status = str(state["status"])
-    if status in {"SUCCEEDED", "FAILED", "PARTIAL", "DENIED"}:
+    if status in {"SUCCEEDED", "FAILED", "PARTIAL", "DENIED", "BLOCKED"}:
         return RecoveryAssessment(
             request_id=request_id,
             status=status,
