@@ -80,12 +80,45 @@ def process(
         correlation_id=str(request.id),
         provenance={"source": "kernel.pipeline"},
     )
+    def record_attempt(attempt_id):
+        attempt_event = Event(
+            id=new_id(),
+            sequence=0,
+            event_type="execution.attempted",
+            timestamp=utc_now(),
+            principal_id=principal.id,
+            request_id=request.id,
+            correlation_id=request.id,
+            provenance={"source": "kernel.pipeline"},
+            payload={
+                "request_id": str(request.id),
+                "proposal_id": str(proposal.id),
+                "authorization_id": str(authorization.id),
+                "attempt_id": str(attempt_id),
+                "principal_id": str(principal.id),
+                "authorization_issued_sequence": authorization_sequence,
+            },
+        )
+        store.append(
+            event_id=str(attempt_event.id),
+            event_type=attempt_event.event_type,
+            timestamp=attempt_event.timestamp.isoformat(),
+            payload=attempt_event.payload,
+            schema_version=attempt_event.schema_version,
+            principal_id=str(attempt_event.principal_id),
+            request_id=str(attempt_event.request_id),
+            causation_id=str(attempt_event.causation_id) if attempt_event.causation_id else None,
+            correlation_id=str(attempt_event.correlation_id) if attempt_event.correlation_id else None,
+            provenance=attempt_event.provenance,
+        )
+
     outcome = execute(
         authorization,
         proposal,
         adapter,
         now=now,
         revocations=revocations,
+        on_attempt=record_attempt,
     )
     event = Event(
         id=new_id(),
