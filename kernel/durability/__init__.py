@@ -14,4 +14,5 @@ __all__ = [
     "canonical_json",
     "replay_request_state",
     "record_unknown_recovery",
+    "record_interruption",
 ]
