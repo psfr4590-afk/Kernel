@@ -43,7 +43,7 @@ def process(
         parameters=parameters,
         idempotency_key=idempotency_key,
     )
-    existing_request_id, _, created = store.claim_operation(
+    existing_request_id, claim_sequence, created = store.claim_operation(
         principal_id=str(principal.id),
         idempotency_key=request.idempotency_key if idempotency_key is None else idempotency_key,
         request_id=str(request.id),
@@ -71,6 +71,11 @@ def process(
             provenance={"source": "kernel.pipeline"},
         )
 
+    claim_event = store.get_event(claim_sequence)
+    if claim_event is None:
+        raise RuntimeError("operation claim has no durable event")
+    claim_event_id = UUID(claim_event[1])
+
     proposal = build_proposal(request)
     context = capture_context(principal, resource)
     decision = governance.evaluate(proposal, context)
@@ -85,6 +90,7 @@ def process(
             principal_id=principal.id,
             request_id=request.id,
             correlation_id=request.id,
+            causation_id=claim_event_id,
             provenance={"source": "kernel.pipeline"},
             payload={
                 "request_id": str(request.id),
@@ -120,6 +126,11 @@ def process(
         correlation_id=str(request.id),
         provenance={"source": "kernel.pipeline"},
     )
+    authorization_event = store.get_event(authorization_sequence)
+    if authorization_event is None:
+        raise RuntimeError("authorization issuance has no durable event")
+    authorization_event_id = UUID(authorization_event[1])
+
     def record_attempt(attempt_id):
         attempt_event = Event(
             id=new_id(),
@@ -127,6 +138,7 @@ def process(
             event_type="execution.attempted",
             timestamp=utc_now(),
             principal_id=principal.id,
+            causation_id=authorization_event_id,
             request_id=request.id,
             correlation_id=request.id,
             provenance={"source": "kernel.pipeline"},
@@ -167,6 +179,7 @@ def process(
         timestamp=utc_now(),
         principal_id=principal.id,
         request_id=request.id,
+        causation_id=authorization_event_id,
         correlation_id=request.id,
         provenance={"source": "kernel.pipeline"},
         payload={
