@@ -10,7 +10,7 @@ from kernel.authority import (
     enforce_authorization,
     issue_authorization,
 )
-from kernel.durability import SQLiteEventStore
+from kernel.durability import AuthorizationIssuanceError, SQLiteEventStore
 from kernel.intake import build_proposal, receive_request
 from kernel.models import GovernanceDecision, Outcome, Principal
 
@@ -144,5 +144,79 @@ def test_event_and_state_rollback_together():
             )
         assert store.all_events() == []
         assert store.get_state("missing") is None
+    finally:
+        store.close()
+
+
+def test_authorization_issuance_is_idempotent():
+    principal = Principal(uuid4(), "human")
+    request = receive_request(
+        principal, operation="test.execute", resource="local:test", parameters={}
+    )
+    proposal = build_proposal(request)
+    now = datetime.now(timezone.utc)
+    authorization = issue_authorization(
+        proposal,
+        GovernanceDecision("ALLOW", proposal.id, "v1", "permitted"),
+        now,
+        timedelta(minutes=1),
+    )
+    store = SQLiteEventStore()
+    try:
+        first = store.append_authorization_issued(
+            authorization,
+            event_id=str(uuid4()),
+            timestamp=now.isoformat(),
+            request_id=str(request.id),
+            correlation_id=str(request.id),
+            provenance={"source": "test"},
+        )
+        second = store.append_authorization_issued(
+            authorization,
+            event_id=str(uuid4()),
+            timestamp=now.isoformat(),
+            request_id=str(request.id),
+            correlation_id=str(request.id),
+            provenance={"source": "test"},
+        )
+        assert second == first
+        assert len(store.all_events()) == 1
+    finally:
+        store.close()
+
+
+def test_conflicting_authorization_issuance_is_rejected():
+    principal = Principal(uuid4(), "human")
+    request = receive_request(
+        principal, operation="test.execute", resource="local:test", parameters={}
+    )
+    proposal = build_proposal(request)
+    now = datetime.now(timezone.utc)
+    authorization = issue_authorization(
+        proposal,
+        GovernanceDecision("ALLOW", proposal.id, "v1", "permitted"),
+        now,
+        timedelta(minutes=1),
+    )
+    store = SQLiteEventStore()
+    try:
+        store.append_authorization_issued(
+            authorization,
+            event_id=str(uuid4()),
+            timestamp=now.isoformat(),
+            request_id=str(request.id),
+            correlation_id=str(request.id),
+            provenance={"source": "test"},
+        )
+        with pytest.raises(AuthorizationIssuanceError):
+            store.append_authorization_issued(
+                authorization,
+                event_id=str(uuid4()),
+                timestamp=now.isoformat(),
+                request_id=str(uuid4()),
+                correlation_id=str(request.id),
+                provenance={"source": "test"},
+            )
+        assert len(store.all_events()) == 1
     finally:
         store.close()
