@@ -11,12 +11,18 @@ from .recovery import (
     rematerialize_request_state,
 )
 from .replay import replay_request_state
-from .sqlite import AuthorizationIssuanceError, SQLiteEventStore, StateSequenceError
+from .sqlite import (
+    AuthorizationIssuanceError,
+    IdempotencyConflictError,
+    SQLiteEventStore,
+    StateSequenceError,
+)
 
 __all__ = [
     "AUDIT_HASH_ALGORITHM",
     "AUDIT_HASH_VERSION",
     "AuthorizationIssuanceError",
+    "IdempotencyConflictError",
     "event_integrity_hash",
     "CanonicalJSONError",
     "RecoveryAssessment",
