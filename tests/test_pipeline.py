@@ -349,3 +349,80 @@ def test_idempotency_key_conflict_rejects_materially_different_request():
         assert len(store.all_events()) == 4
     finally:
         store.close()
+
+
+
+def test_duplicate_idempotency_key_after_interruption_does_not_retry_effect():
+    store = SQLiteEventStore()
+    principal = Principal(uuid4(), "human")
+    first_adapter = RaisingAdapter()
+    second_adapter = Adapter()
+    try:
+        with pytest.raises(RuntimeError):
+            process(
+                principal,
+                operation="test.execute",
+                resource="local:test",
+                parameters={"x": 1},
+                governance=Allow(),
+                adapter=first_adapter,
+                store=store,
+                idempotency_key="operation-interrupted",
+            )
+        second = process(
+            principal,
+            operation="test.execute",
+            resource="local:test",
+            parameters={"x": 1},
+            governance=Allow(),
+            adapter=second_adapter,
+            store=store,
+            idempotency_key="operation-interrupted",
+        )
+        assert second.event_type == "execution.attempted"
+        assert second.sequence == 3
+        assert second_adapter.calls == 0
+    finally:
+        store.close()
+
+
+def test_idempotency_claim_survives_store_reopen(tmp_path):
+    database = tmp_path / "kernel.db"
+    principal = Principal(uuid4(), "human")
+    first = SQLiteEventStore(str(database))
+    try:
+        request_id, sequence, created = first.claim_operation(
+            principal_id=str(principal.id),
+            idempotency_key="persistent-operation",
+            request_id=str(uuid4()),
+            operation="test.execute",
+            resource="local:test",
+            parameters={"x": 1},
+            timestamp="2026-01-01T00:00:00+00:00",
+            correlation_id=None,
+            provenance={"source": "test"},
+        )
+        assert created is True
+        assert sequence == 1
+    finally:
+        first.close()
+
+    second = SQLiteEventStore(str(database))
+    try:
+        resolved_id, resolved_sequence, created = second.claim_operation(
+            principal_id=str(principal.id),
+            idempotency_key="persistent-operation",
+            request_id=str(uuid4()),
+            operation="test.execute",
+            resource="local:test",
+            parameters={"x": 1},
+            timestamp="2026-01-01T00:00:01+00:00",
+            correlation_id=None,
+            provenance={"source": "test"},
+        )
+        assert resolved_id == request_id
+        assert resolved_sequence == sequence
+        assert created is False
+        assert len(second.all_events()) == 1
+    finally:
+        second.close()
