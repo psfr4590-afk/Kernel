@@ -1,6 +1,6 @@
 # Kernel Architecture Index
 
-This index is the map of the pre-implementation blueprint.
+This index is the map of the Kernel architectural blueprint and engineering baseline.
 
 ## Foundation
 
@@ -51,6 +51,7 @@ This index is the map of the pre-implementation blueprint.
 - [25_CONTRACT_TRACEABILITY_MATRIX.md](25_CONTRACT_TRACEABILITY_MATRIX.md)
 - [31_END_TO_END_REFERENCE_SCENARIOS.md](31_END_TO_END_REFERENCE_SCENARIOS.md)
 - [32_IMPLEMENTATION_ENTRY_CRITERIA.md](32_IMPLEMENTATION_ENTRY_CRITERIA.md)
+- [38_PRE_IMPLEMENTATION_ENGINEERING_AUDIT.md](38_PRE_IMPLEMENTATION_ENGINEERING_AUDIT.md)
 
 ## Architecture decisions
 
@@ -65,8 +66,12 @@ This index is the map of the pre-implementation blueprint.
 - [22_FORMAL_OBJECT_SCHEMAS.md](22_FORMAL_OBJECT_SCHEMAS.md)
 - [23_STATE_TRANSITION_TABLES.md](23_STATE_TRANSITION_TABLES.md)
 
+## Integrated system design
+
+- [36_COMPLETE_KERNEL_SYSTEM_DESIGN.md](36_COMPLETE_KERNEL_SYSTEM_DESIGN.md)
+
 ## Blueprint status
 
-The repository currently describes a broad, implementation-neutral Kernel architecture. It does not claim executable implementation, test coverage, production readiness, or settled technology choices.
+The architecture is DESIGNED. The repository does not claim executable implementation or runtime verification.
 
-The complete integrated system design is now captured in [36_COMPLETE_KERNEL_SYSTEM_DESIGN.md](36_COMPLETE_KERNEL_SYSTEM_DESIGN.md). That document is the end-to-end design target: it connects intake, identity, context, proposal, governance, authorization, resource control, scheduling, isolation, model integration, execution, external effects, events, state, memory, observation, failure, recovery, administration, security, privacy, backup/restore, migration, verification, and implementation boundaries into one coherent system. The documents indexed above remain supporting architectural rationale, contracts, invariants, and traceability.
+Document 36 is the canonical integrated end-to-end system design. Document 38 records the engineering baseline and current pre-implementation findings. Implementation now proceeds under the whole-program engineering protocol, with evidence status kept explicit and technology choices settled only through justified ADRs.
