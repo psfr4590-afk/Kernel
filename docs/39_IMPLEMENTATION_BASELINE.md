@@ -1,6 +1,6 @@
 # Kernel Implementation Baseline
 
-Status: IMPLEMENTATION ENTRY / FIRST RECOVERY CAPABILITY
+Status: IMPLEMENTATION ENTRY / RECOVERY AND REVOCATION CAPABILITY
 Date: 2026-09-22
 
 
@@ -34,7 +34,7 @@ The first vertical slice proves authority enforcement and durable evidence befor
 
 The initial recovery capability is read-only and evidence-first. It reconstructs local request state from durable event history and reports UNKNOWN when the available evidence does not establish a terminal effect outcome. It does not retry, renew authorization, rewrite history, or create a new effect.
 
-Recovery remains incomplete until reconciliation, interruption handling, durable revocation, and fault-injection verification are implemented.
+Recovery now includes durable UNKNOWN evidence recording and idempotent recovery assessment. Durable revocation is implemented. Recovery remains incomplete until operation-specific reconciliation, explicit interruption-state handling, and fault-injection verification are implemented.
 
 ## Dependency policy
 
@@ -50,6 +50,10 @@ The first executable evidence consists only of package importability and the tes
 
 Future claims MUST use the repository evidence vocabulary:
 UNKNOWN, DESIGNED, IMPLEMENTED, VERIFIED, REGRESSED.
+
+## Current recovery boundary
+
+Recovery can inspect durable history, preserve uncertainty as UNKNOWN, durably record that unresolved condition without creating an effect, and avoid duplicating the same recovery evidence on repeated inspection. A later authoritative terminal event supersedes the UNKNOWN assessment during replay. Recovery does not retry, renew, or broaden authority.
 
 ## Next implementation target
 
