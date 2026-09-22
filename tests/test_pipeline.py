@@ -50,13 +50,14 @@ def test_connected_allow_path_persists_authorization_lineage():
             store=store,
         )
         events = store.all_events()
-        assert event.sequence == 3
-        assert events[0][2] == "authorization.issued"
-        assert events[1][2] == "execution.attempted"
-        assert events[2][2] == "execution.succeeded"
-        assert event.payload["authorization_issued_sequence"] == events[0][0]
-        assert events[1][4] and "attempt_id" in events[1][4]
-        assert event.payload["attempt_id"] == json.loads(events[1][4])["attempt_id"]
+        assert event.sequence == 4
+        assert events[0][2] == "operation.claimed"
+        assert events[1][2] == "authorization.issued"
+        assert events[2][2] == "execution.attempted"
+        assert events[3][2] == "execution.succeeded"
+        assert event.payload["authorization_issued_sequence"] == events[1][0]
+        assert events[2][4] and "attempt_id" in events[2][4]
+        assert event.payload["attempt_id"] == json.loads(events[2][4])["attempt_id"]
         authorization_id = event.payload["authorization_id"]
         assert store.get_authorization(authorization_id) is not None
         assert adapter.calls == 1
@@ -111,7 +112,7 @@ def test_denial_never_reaches_adapter():
         )
         assert event.event_type == "request.denied"
         assert adapter.calls == 0
-        assert len(store.all_events()) == 1
+        assert len(store.all_events()) == 2
     finally:
         store.close()
 
@@ -247,11 +248,12 @@ def test_adapter_failure_leaves_attempt_evidence_durable():
             )
         events = store.all_events()
         assert [row[2] for row in events] == [
+            "operation.claimed",
             "authorization.issued",
             "execution.attempted",
         ]
-        attempt = json.loads(events[1][4])
-        assert attempt["authorization_issued_sequence"] == events[0][0]
+        attempt = json.loads(events[2][4])
+        assert attempt["authorization_issued_sequence"] == events[1][0]
         assert attempt["attempt_id"]
         assert store.get_state(attempt["request_id"]) is None
     finally:
@@ -275,5 +277,71 @@ def test_pipeline_authenticates_identity_before_request_intake():
         )
         assert event.payload["principal_id"] == str(provider.authenticate().id)
         assert adapter.calls == 1
+    finally:
+        store.close()
+
+
+
+def test_duplicate_idempotency_key_resolves_to_original_terminal_event():
+    store = SQLiteEventStore()
+    first_adapter = Adapter()
+    second_adapter = Adapter()
+    principal = Principal(uuid4(), "human")
+    try:
+        first = process(
+            principal,
+            operation="test.execute",
+            resource="local:test",
+            parameters={"x": 1},
+            governance=Allow(),
+            adapter=first_adapter,
+            store=store,
+            idempotency_key="operation-1",
+        )
+        second = process(
+            principal,
+            operation="test.execute",
+            resource="local:test",
+            parameters={"x": 1},
+            governance=Allow(),
+            adapter=second_adapter,
+            store=store,
+            idempotency_key="operation-1",
+        )
+        assert second.sequence == first.sequence
+        assert second.event_type == "execution.succeeded"
+        assert first_adapter.calls == 1
+        assert second_adapter.calls == 0
+        assert len(store.all_events()) == 4
+    finally:
+        store.close()
+
+
+def test_idempotency_key_conflict_rejects_materially_different_request():
+    store = SQLiteEventStore()
+    principal = Principal(uuid4(), "human")
+    try:
+        process(
+            principal,
+            operation="test.execute",
+            resource="local:test",
+            parameters={"x": 1},
+            governance=Allow(),
+            adapter=Adapter(),
+            store=store,
+            idempotency_key="operation-conflict",
+        )
+        with pytest.raises(IdempotencyConflictError):
+            process(
+                principal,
+                operation="test.execute",
+                resource="local:test",
+                parameters={"x": 2},
+                governance=Allow(),
+                adapter=Adapter(),
+                store=store,
+                idempotency_key="operation-conflict",
+            )
+        assert len(store.all_events()) == 4
     finally:
         store.close()
