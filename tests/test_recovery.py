@@ -152,3 +152,59 @@ def test_interruption_does_not_override_existing_terminal_outcome() -> None:
         ]
     finally:
         store.close()
+
+
+def test_recovery_rematerializes_derived_state_from_authoritative_history() -> None:
+    store = SQLiteEventStore()
+    try:
+        request_id = "request-rematerialize"
+        sequence = store.append(
+            event_id="event-rematerialize",
+            event_type="execution.succeeded",
+            timestamp="2026-01-01T00:00:00+00:00",
+            payload={
+                "request_id": request_id,
+                "attempt_id": "attempt-1",
+                "outcome": "SUCCEEDED",
+            },
+        )
+        store._connection.execute(
+            "INSERT INTO state(subject,state_json,event_sequence) VALUES(?,?,?)",
+            (request_id, '{"status":"CORRUPTED"}', sequence),
+        )
+        store._connection.commit()
+
+        from kernel.durability import rematerialize_request_state
+
+        assessment = rematerialize_request_state(store, request_id)
+
+        assert assessment.status == "SUCCEEDED"
+        assert store.get_state(request_id) == (
+            '{"attempt_id":"attempt-1","event_sequence":1,"status":"SUCCEEDED"}',
+            sequence,
+        )
+        assert len(store.all_events()) == 1
+    finally:
+        store.close()
+
+
+def test_rematerialization_rejects_non_authoritative_sequence_without_mutation() -> None:
+    store = SQLiteEventStore()
+    try:
+        request_id = "request-invalid-rematerialize"
+        store.append(
+            event_id="event-existing",
+            event_type="request.denied",
+            timestamp="2026-01-01T00:00:00+00:00",
+            payload={"request_id": request_id},
+        )
+        before = store.get_state(request_id)
+        with __import__("pytest").raises(ValueError):
+            store.rematerialize_state(
+                subject=request_id,
+                state={"status": "DENIED"},
+                event_sequence=999,
+            )
+        assert store.get_state(request_id) == before
+    finally:
+        store.close()
