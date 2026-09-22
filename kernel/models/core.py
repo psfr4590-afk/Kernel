@@ -65,6 +65,7 @@ class Authorization:
     resource: str
     issued_at: datetime
     expires_at: datetime
+    parameters_fingerprint: str = ""
 
     def valid_at(self, at: datetime) -> bool:
         return self.expires_at > at
