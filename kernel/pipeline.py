@@ -10,7 +10,7 @@ from kernel.durability import SQLiteEventStore
 from kernel.execution import execute
 from kernel.intake import build_proposal, capture_context, receive_request
 from kernel.interfaces import ExecutionAdapter, GovernanceEvaluator
-from kernel.models import Event, Principal, utc_now
+from kernel.models import Event, Principal, new_id, utc_now
 
 
 def process(
@@ -38,7 +38,7 @@ def process(
     now = utc_now()
     if decision.decision != "ALLOW":
         event = Event(
-            id=__import__("kernel.models", fromlist=["new_id"]).new_id(),
+            id=new_id(),
             sequence=0,
             event_type="request.denied",
             timestamp=now,
@@ -55,7 +55,7 @@ def process(
             timestamp=event.timestamp.isoformat(),
             payload=event.payload,
         )
-        return event.__class__(**{**event.__dict__, "sequence": sequence})
+        return Event(**{**event.__dict__, "sequence": sequence})
 
     authorization = issue_authorization(
         proposal, decision, now, timedelta(minutes=1)
@@ -87,6 +87,6 @@ def process(
         timestamp=event.timestamp.isoformat(),
         payload=event.payload,
         subject=str(request.id),
-        state={"status": outcome.status, "event_sequence": "pending"},
+        state={"status": outcome.status},
     )
     return event.__class__(**{**event.__dict__, "sequence": sequence})
