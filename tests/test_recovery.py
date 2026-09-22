@@ -209,3 +209,23 @@ def test_rematerialization_rejects_non_authoritative_sequence_without_mutation()
         assert store.get_state(request_id) == before
     finally:
         store.close()
+
+
+def test_recovery_reconstructs_blocked_execution_as_terminal() -> None:
+    store = SQLiteEventStore()
+    try:
+        store.append(
+            event_id="event-blocked",
+            event_type="execution.blocked",
+            timestamp="2026-01-01T00:00:00+00:00",
+            payload={
+                "request_id": "request-blocked",
+                "attempt_id": "attempt-blocked",
+                "outcome": "BLOCKED",
+            },
+        )
+        assessment = assess_request_recovery(store.all_events(), "request-blocked")
+        assert assessment.status == "BLOCKED"
+        assert assessment.requires_reconciliation is False
+    finally:
+        store.close()
