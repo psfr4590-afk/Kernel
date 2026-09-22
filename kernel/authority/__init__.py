@@ -6,6 +6,7 @@ from .service import AuthorizationError, enforce_authorization, issue_authorizat
 __all__ = [
     "AuthorizationError",
     "RevocationRegistry",
+    "SQLiteRevocationRegistry",
     "enforce_authorization",
     "issue_authorization",
 ]
