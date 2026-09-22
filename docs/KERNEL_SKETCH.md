@@ -493,13 +493,11 @@ For these items:
 
 ---
 
-## 20. Next Architectural Artifact
+## 20. Current Project Position
 
-The next document should formalize the **Kernel invariants and authority contract**.
+This document is the historical foundational sketch. The invariants and authority contract now exist in `docs/01_INVARIANTS_AND_AUTHORITY_CONTRACT.md`, and the complete integrated end-to-end system design now exists in `docs/36_COMPLETE_KERNEL_SYSTEM_DESIGN.md`.
 
-That document should turn the principles in this sketch into testable statements without prematurely selecting implementation technology.
-
-Only after those contracts are sufficiently defined should the repository begin accumulating implementation architecture and code.
+The project has therefore moved from sketching into controlled implementation. The next engineering work is governed by the repository's contracts, the implementation-entry criteria, and the whole-program engineering audit. Technology choices that are unavoidable for the first executable slice must be explicitly recorded as ADRs rather than being allowed to emerge accidentally from dependencies.
 
 ---
 
