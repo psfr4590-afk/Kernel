@@ -122,6 +122,6 @@ The reference architecture preserves:
 
 ## 12. Implementation Readiness
 
-This reference architecture is sufficient to begin detailed interface and schema design, but it is NOT evidence of implementation readiness for a production system.
+This reference architecture is sufficient to begin controlled implementation work. The repository already contains formal object schemas, state transition tables, authority proof obligations, traceability, security properties, failure/recovery matrices, scenarios, and the complete integrated system design.
 
-The next work should convert conceptual objects into precise contracts, state transition tables, schemas, ADRs, and executable verification requirements before implementation.
+The remaining pre-implementation work is to settle only the technology decisions that are unavoidable for the first executable slice, record those decisions as ADRs, and then implement the smallest complete vertical path with executable verification.
