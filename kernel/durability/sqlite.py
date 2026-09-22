@@ -6,6 +6,7 @@ import json
 import sqlite3
 from typing import Any, Mapping
 
+from .audit import event_integrity_hash, verify_event_integrity
 from .json import canonical_json
 
 
@@ -80,6 +81,23 @@ class SQLiteEventStore:
         if "integrity_hash" not in columns:
             self._connection.execute("ALTER TABLE events ADD COLUMN integrity_hash TEXT")
 
+    def _store_event_integrity_hash(self, sequence: int, *, event_id: str, event_type: str, timestamp: str, payload: Mapping[str, Any], schema_version: int, principal_id: str | None, request_id: str | None, causation_id: str | None, correlation_id: str | None, provenance: Mapping[str, Any] | None) -> None:
+        integrity_hash = event_integrity_hash(
+            event_id=event_id,
+            event_type=event_type,
+            timestamp=timestamp,
+            payload=payload,
+            schema_version=schema_version,
+            principal_id=principal_id,
+            request_id=request_id,
+            causation_id=causation_id,
+            correlation_id=correlation_id,
+            provenance=provenance or {},
+        )
+        self._connection.execute(
+            "UPDATE events SET integrity_hash=? WHERE sequence=?",
+            (integrity_hash, sequence),
+        )
     def save_authorization(self, authorization: Any) -> None:
         """Persist an issued authorization record idempotently."""
         try:
@@ -221,8 +239,22 @@ class SQLiteEventStore:
                     provenance_data,
                 ),
             )
+            sequence = int(cursor.lastrowid)
+            self._store_event_integrity_hash(
+                sequence,
+                event_id=event_id,
+                event_type="authorization.issued",
+                timestamp=timestamp,
+                payload=payload,
+                schema_version=1,
+                principal_id=str(authorization.principal_id),
+                request_id=request_id,
+                causation_id=None,
+                correlation_id=correlation_id,
+                provenance=provenance or {},
+            )
             self._connection.commit()
-            return int(cursor.lastrowid)
+            return sequence
         except Exception:
             self._connection.rollback()
             raise
@@ -284,8 +316,22 @@ class SQLiteEventStore:
                 provenance_data,
             ),
         )
+        sequence = int(cursor.lastrowid)
+        self._store_event_integrity_hash(
+            sequence,
+            event_id=event_id,
+            event_type=event_type,
+            timestamp=timestamp,
+            payload=payload,
+            schema_version=schema_version,
+            principal_id=principal_id,
+            request_id=request_id,
+            causation_id=causation_id,
+            correlation_id=correlation_id,
+            provenance=provenance or {},
+        )
         self._connection.commit()
-        return int(cursor.lastrowid)
+        return sequence
 
     def append_with_state(
         self,
@@ -329,6 +375,19 @@ class SQLiteEventStore:
                 ),
             )
             sequence = int(cursor.lastrowid)
+            self._store_event_integrity_hash(
+                sequence,
+                event_id=event_id,
+                event_type=event_type,
+                timestamp=timestamp,
+                payload=payload,
+                schema_version=schema_version,
+                principal_id=principal_id,
+                request_id=request_id,
+                causation_id=causation_id,
+                correlation_id=correlation_id,
+                provenance=provenance or {},
+            )
             existing = self._connection.execute(
                 "SELECT event_sequence FROM state WHERE subject=?",
                 (subject,),
@@ -432,11 +491,55 @@ class SQLiteEventStore:
                 (event_id, "authorization.revoked", revoked_at, event_data, 1,
                  principal_id, request_id, correlation_id, provenance_data),
             )
+            sequence = int(cursor.lastrowid)
+            self._store_event_integrity_hash(
+                sequence,
+                event_id=event_id,
+                event_type="authorization.revoked",
+                timestamp=revoked_at,
+                payload={
+                    "authorization_id": authorization_id,
+                    "reason": reason,
+                    "request_id": request_id,
+                },
+                schema_version=1,
+                principal_id=principal_id,
+                request_id=request_id,
+                causation_id=None,
+                correlation_id=correlation_id,
+                provenance=provenance or {},
+            )
             self._connection.commit()
-            return int(cursor.lastrowid)
+            return sequence
         except Exception:
             self._connection.rollback()
             raise
+
+    def verify_event_integrity(self, sequence: int) -> bool:
+        row = self._connection.execute(
+            "SELECT event_id,event_type,timestamp,payload,schema_version,principal_id,request_id,causation_id,correlation_id,provenance,integrity_hash FROM events WHERE sequence=?",
+            (sequence,),
+        ).fetchone()
+        if row is None or row[10] is None:
+            return False
+        try:
+            payload = json.loads(row[3])
+            provenance = json.loads(row[9])
+        except (TypeError, json.JSONDecodeError):
+            return False
+        return verify_event_integrity(
+            recorded_hash=str(row[10]),
+            event_id=str(row[0]),
+            event_type=str(row[1]),
+            timestamp=str(row[2]),
+            payload=payload,
+            schema_version=int(row[4]),
+            principal_id=row[5],
+            request_id=row[6],
+            causation_id=row[7],
+            correlation_id=row[8],
+            provenance=provenance,
+        )
 
     def is_authorization_revoked(self, authorization_id: str) -> bool:
         row = self._connection.execute(
