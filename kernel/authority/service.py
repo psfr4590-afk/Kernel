@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 from kernel.models import Authorization, GovernanceDecision, Proposal, new_id
+from kernel.authority.fingerprint import parameters_fingerprint
 from kernel.authority.revocation import RevocationRegistry
 
 
@@ -32,6 +33,7 @@ def issue_authorization(
         resource=proposal.resource,
         issued_at=now,
         expires_at=now + lifetime,
+        parameters_fingerprint=parameters_fingerprint(proposal.parameters),
     )
 
 
@@ -49,6 +51,8 @@ def enforce_authorization(
         raise AuthorizationError("operation outside authorization scope")
     if authorization.resource != proposal.resource:
         raise AuthorizationError("resource outside authorization scope")
+    if authorization.parameters_fingerprint != parameters_fingerprint(proposal.parameters):
+        raise AuthorizationError("parameters outside authorization scope")
     if not authorization.valid_at(now):
         raise AuthorizationError("authorization expired")
     if revocations is not None and revocations.is_revoked(authorization.id):
