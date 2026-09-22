@@ -11,7 +11,11 @@ from kernel.authority import (
     enforce_authorization,
     issue_authorization,
 )
-from kernel.durability import AuthorizationIssuanceError, SQLiteEventStore
+from kernel.durability import (
+    AuthorizationIssuanceError,
+    IdempotencyConflictError,
+    SQLiteEventStore,
+)
 from kernel.identity import LocalCryptographicIdentityProvider
 from kernel.intake import build_proposal, receive_request
 from kernel.models import GovernanceDecision, Outcome, Principal
