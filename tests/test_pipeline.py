@@ -48,10 +48,13 @@ def test_connected_allow_path_persists_authorization_lineage():
             store=store,
         )
         events = store.all_events()
-        assert event.sequence == 2
+        assert event.sequence == 3
         assert events[0][2] == "authorization.issued"
-        assert events[1][2] == "execution.succeeded"
+        assert events[1][2] == "execution.attempted"
+        assert events[2][2] == "execution.succeeded"
         assert event.payload["authorization_issued_sequence"] == events[0][0]
+        assert events[1][4] and "attempt_id" in events[1][4]
+        assert event.payload["attempt_id"] == __import__("json").loads(events[1][4])["attempt_id"]
         authorization_id = event.payload["authorization_id"]
         assert store.get_authorization(authorization_id) is not None
         assert adapter.calls == 1
