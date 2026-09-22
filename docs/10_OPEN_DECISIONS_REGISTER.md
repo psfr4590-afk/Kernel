@@ -6,8 +6,8 @@ This file prevents unresolved design choices from being accidentally treated as 
 
 | ID | Decision | Status |
 |---|---|---|
-| OD-001 | Implementation language | UNKNOWN |
-| OD-002 | Database/storage engine | UNKNOWN |
+| OD-001 | Implementation language | ACCEPTED: Python (ADR-001) |
+| OD-002 | Database/storage engine | ACCEPTED: SQLite (ADR-002) |
 | OD-003 | Event serialization | UNKNOWN |
 | OD-004 | Cryptographic primitives | UNKNOWN |
 | OD-005 | Identity protocol | UNKNOWN |
