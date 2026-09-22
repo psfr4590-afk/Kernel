@@ -79,7 +79,7 @@ class FilesystemReadAdapter:
         if requested.is_absolute():
             raise FilesystemReadError("absolute filesystem paths are not permitted")
         try:
-            candidate = requested.resolve()
+            candidate = (self._root / requested).resolve()
             if not candidate.is_relative_to(self._root):
                 raise FilesystemReadError("filesystem path escapes configured root")
             if not candidate.is_file():
