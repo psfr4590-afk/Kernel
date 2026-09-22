@@ -97,4 +97,4 @@ Expired or otherwise invalid authorization MUST NOT satisfy a current execution 
 
 ## 14. Open Decisions
 
-Identity protocol, credentials, delegation, revocation, policy language, policy evaluation engine, approval workflows, secrets handling, and authorization token format remain unresolved.
+Identity protocol, delegation, revocation, and authorization token format are settled by ADR-005, ADR-010, ADR-011, and ADR-009. Policy language and policy evaluation remain intentionally unresolved. Approval workflows and secrets handling remain implementation-level concerns unless they materially change the authority model.
