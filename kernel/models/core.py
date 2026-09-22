@@ -27,6 +27,7 @@ class Request:
     resource: str
     parameters: Mapping[str, Any]
     received_at: datetime
+    idempotency_key: str
 
 
 @dataclass(frozen=True)
