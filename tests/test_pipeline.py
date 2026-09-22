@@ -34,7 +34,7 @@ class Adapter:
         return Outcome(uuid4(), "SUCCEEDED", {"accepted": True})
 
 
-def test_connected_allow_path_persists_event_and_state():
+def test_connected_allow_path_persists_authorization_lineage():
     store = SQLiteEventStore()
     adapter = Adapter()
     try:
@@ -47,10 +47,46 @@ def test_connected_allow_path_persists_event_and_state():
             adapter=adapter,
             store=store,
         )
-        assert event.sequence == 1
-        assert event.event_type == "execution.succeeded"
+        events = store.all_events()
+        assert event.sequence == 2
+        assert events[0][2] == "authorization.issued"
+        assert events[1][2] == "execution.succeeded"
+        assert event.payload["authorization_issued_sequence"] == events[0][0]
+        authorization_id = event.payload["authorization_id"]
+        assert store.get_authorization(authorization_id) is not None
         assert adapter.calls == 1
         assert store.get_state(event.payload["request_id"])[1] == event.sequence
+    finally:
+        store.close()
+
+
+def test_authorization_record_alone_does_not_grant_authority():
+    principal = Principal(uuid4(), "human")
+    request = receive_request(
+        principal, operation="test.execute", resource="local:test", parameters={}
+    )
+    proposal = build_proposal(request)
+    now = datetime.now(timezone.utc)
+    authorization = issue_authorization(
+        proposal,
+        GovernanceDecision("ALLOW", proposal.id, "v1", "permitted"),
+        now,
+        timedelta(minutes=1),
+    )
+    store = SQLiteEventStore()
+    try:
+        store.save_authorization(authorization)
+        unrelated_request = receive_request(
+            principal,
+            operation="test.delete",
+            resource="local:other",
+            parameters={},
+        )
+        unrelated_proposal = build_proposal(unrelated_request)
+        with pytest.raises(AuthorizationError):
+            enforce_authorization(
+                authorization, unrelated_proposal, now
+            )
     finally:
         store.close()
 
