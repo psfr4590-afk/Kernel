@@ -1,10 +1,12 @@
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from kernel import process
-from kernel.authority import RevocationRegistry
+import pytest
+
+from kernel.authority import AuthorizationError, RevocationRegistry, enforce_authorization, issue_authorization
 from kernel.durability import SQLiteEventStore
 from kernel.models import GovernanceDecision, Outcome, Principal
+from kernel import process
 
 
 class Allow:
@@ -67,11 +69,38 @@ def test_denial_never_reaches_adapter():
         store.close()
 
 
-def test_revoked_authorization_cannot_reach_adapter():
-    store = SQLiteEventStore()
-    adapter = Adapter()
+def test_revoked_authorization_blocks_effect():
+    from datetime import timedelta
+
+    principal = Principal(uuid4(), "human")
+    request = __import__("kernel.intake", fromlist=["receive_request"]).receive_request(
+        principal, operation="test.execute", resource="local:test", parameters={}
+    )
+    proposal = __import__("kernel.intake", fromlist=["build_proposal"]).build_proposal(request)
+    now = datetime.now(timezone.utc)
+    authorization = issue_authorization(
+        proposal, GovernanceDecision("ALLOW", proposal.id, "v1", "permitted"),
+        now, timedelta(minutes=1),
+    )
     registry = RevocationRegistry()
-    # The pipeline creates the authorization internally, so this test verifies
-    # the existing execution boundary separately through the dedicated test suite.
-    assert registry.is_revoked(uuid4()) is False
-    store.close()
+    registry.revoke(authorization.id)
+    with pytest.raises(AuthorizationError):
+        enforce_authorization(authorization, proposal, now, registry)
+
+
+def test_event_and_state_rollback_together():
+    store = SQLiteEventStore()
+    try:
+        with pytest.raises(Exception):
+            store.append_with_state(
+                event_id=str(uuid4()),
+                event_type="test.atomicity",
+                timestamp=datetime.now(timezone.utc).isoformat(),
+                payload={"ok": True},
+                subject=str(uuid4()),
+                state={"not_json": float("nan")},
+            )
+        assert store.all_events() == []
+        assert store.get_state("missing") is None
+    finally:
+        store.close()
