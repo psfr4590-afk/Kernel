@@ -176,6 +176,7 @@ def process(
             "attempt_id": str(outcome.attempt_id),
             "principal_id": str(principal.id),
             "outcome": outcome.status,
+            "evidence": outcome.evidence,
             "authorization_issued_sequence": authorization_sequence,
         },
     )
