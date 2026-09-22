@@ -23,4 +23,5 @@ def execute(
     attempt_id = new_id()
     if on_attempt is not None:
         on_attempt(attempt_id)
-    return adapter.execute(authorization, proposal.parameters)
+    outcome = adapter.execute(authorization, proposal.parameters)
+    return Outcome(attempt_id, outcome.status, outcome.evidence)
