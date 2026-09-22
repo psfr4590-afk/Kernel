@@ -1,7 +1,7 @@
 """Durability and evidence boundaries."""
 
 from .json import CanonicalJSONError, canonical_json
-from .recovery import RecoveryAssessment, assess_request_recovery
+from .recovery import RecoveryAssessment, assess_request_recovery, record_unknown_recovery
 from .replay import replay_request_state
 from .sqlite import SQLiteEventStore, StateSequenceError
 
