@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
-
 from kernel.authority import AuthorizationError, RevocationRegistry, enforce_authorization
 from kernel.interfaces import ExecutionAdapter
 from kernel.models import Authorization, Outcome, Proposal, new_id
