@@ -69,4 +69,4 @@ This index is the map of the pre-implementation blueprint.
 
 The repository currently describes a broad, implementation-neutral Kernel architecture. It does not claim executable implementation, test coverage, production readiness, or settled technology choices.
 
-The next engineering layer should refine unresolved domains into formal contracts, interfaces, schemas, resource models, scheduling semantics, memory semantics, isolation contracts, and ADRs before implementation.
+The complete integrated system design is now captured in [36_COMPLETE_KERNEL_SYSTEM_DESIGN.md](36_COMPLETE_KERNEL_SYSTEM_DESIGN.md). That document is the end-to-end design target: it connects intake, identity, context, proposal, governance, authorization, resource control, scheduling, isolation, model integration, execution, external effects, events, state, memory, observation, failure, recovery, administration, security, privacy, backup/restore, migration, verification, and implementation boundaries into one coherent system. The documents indexed above remain supporting architectural rationale, contracts, invariants, and traceability.
