@@ -3,6 +3,14 @@
 from .identity import IdentityError, IdentityEvidence, LocalCryptographicIdentityProvider, verify_evidence
 from .pipeline import process
 
+__all__ = [
+    "IdentityError",
+    "IdentityEvidence",
+    "LocalCryptographicIdentityProvider",
+    "process",
+    "verify_evidence",
+]
+
 __version__ = "0.1.0"
 
 __all__ = ["process", "__version__"]
