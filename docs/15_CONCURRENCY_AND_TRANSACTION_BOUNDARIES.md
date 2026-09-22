@@ -58,6 +58,16 @@ System wall-clock time MUST NOT be assumed trustworthy for every security decisi
 
 If Kernel spans processes or machines, message delivery, duplication, ordering, partition, and retry behavior become architectural concerns.
 
-## 10. Open Decisions
+## 10. Accepted Architectural Decisions
 
-Transaction mechanism, locking, clock source, monotonic identifiers, distributed coordination, consistency model, and atomic commit strategy remain UNKNOWN.
+- Transaction and event/state atomicity: ADR-012.
+- Structured transport boundary: ADR-013.
+- Idempotency: ADR-015.
+- Global durable event ordering: ADR-016.
+- Initial topology: ADR-023.
+
+## 11. Remaining Implementation-Level Decisions
+
+The implementation must still define the concrete transaction API, locking strategy, clock source and uncertainty bounds, identifier representation, SQLite sequence allocation, and any later distributed coordination mechanism.
+
+These details MUST preserve the accepted authority, ordering, idempotency, durability, and recovery contracts. A future implementation choice that materially changes those contracts requires a new ADR.
