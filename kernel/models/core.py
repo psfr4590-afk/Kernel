@@ -76,6 +76,16 @@ class Outcome:
     evidence: Mapping[str, Any]
 
 
+"""Evidence records with explicit lineage metadata."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Mapping
+from uuid import UUID
+
+
 @dataclass(frozen=True)
 class Event:
     id: UUID
@@ -83,6 +93,12 @@ class Event:
     event_type: str
     timestamp: datetime
     payload: Mapping[str, Any]
+    schema_version: int = 1
+    principal_id: UUID | None = None
+    request_id: UUID | None = None
+    causation_id: UUID | None = None
+    correlation_id: UUID | None = None
+    provenance: Mapping[str, Any] = field(default_factory=dict)
 
 
 def new_id() -> UUID:
