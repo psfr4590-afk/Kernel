@@ -1,4 +1,9 @@
-from kernel.durability import (\n    SQLiteEventStore,\n    assess_request_recovery,\n    record_interruption,\n    record_unknown_recovery,\n)
+from kernel.durability import (
+    SQLiteEventStore,
+    assess_request_recovery,
+    record_interruption,
+    record_unknown_recovery,
+)
 
 
 def test_recovery_reconstructs_terminal_denial_without_new_effect() -> None:
