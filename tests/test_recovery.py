@@ -1,4 +1,4 @@
-from kernel.durability import SQLiteEventStore, assess_request_recovery, record_unknown_recovery
+from kernel.durability import (\n    SQLiteEventStore,\n    assess_request_recovery,\n    record_interruption,\n    record_unknown_recovery,\n)
 
 
 def test_recovery_reconstructs_terminal_denial_without_new_effect() -> None:
@@ -117,5 +117,33 @@ def test_interruption_evidence_is_idempotent_and_does_not_claim_success() -> Non
         assert second.requires_reconciliation is True
         events = [row for row in store.all_events() if row[2] == "recovery.interrupted"]
         assert len(events) == 1
+    finally:
+        store.close()
+
+
+def test_interruption_does_not_override_existing_terminal_outcome() -> None:
+    store = SQLiteEventStore()
+    try:
+        store.append(
+            event_id="event-terminal",
+            event_type="execution.succeeded",
+            timestamp="2026-01-01T00:00:00+00:00",
+            payload={
+                "request_id": "request-3",
+                "attempt_id": "attempt-3",
+                "outcome": "SUCCEEDED",
+            },
+        )
+        assessment = record_interruption(
+            store,
+            "request-3",
+            timestamp="2026-01-01T00:00:01+00:00",
+            reason="late recovery inspection",
+        )
+        assert assessment.status == "SUCCEEDED"
+        assert not [
+            row for row in store.all_events()
+            if row[2] == "recovery.interrupted"
+        ]
     finally:
         store.close()
