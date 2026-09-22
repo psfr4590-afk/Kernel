@@ -12,6 +12,7 @@ from kernel.authority import (
     issue_authorization,
 )
 from kernel.durability import AuthorizationIssuanceError, SQLiteEventStore
+from kernel.identity import LocalCryptographicIdentityProvider
 from kernel.intake import build_proposal, receive_request
 from kernel.models import GovernanceDecision, Outcome, Principal
 
@@ -253,5 +254,26 @@ def test_adapter_failure_leaves_attempt_evidence_durable():
         assert attempt["authorization_issued_sequence"] == events[0][0]
         assert attempt["attempt_id"]
         assert store.get_state(attempt["request_id"]) is None
+    finally:
+        store.close()
+
+
+
+def test_pipeline_authenticates_identity_before_request_intake():
+    store = SQLiteEventStore()
+    provider = LocalCryptographicIdentityProvider.generate()
+    adapter = Adapter()
+    try:
+        event = process(
+            operation="test.execute",
+            resource="local:test",
+            parameters={},
+            governance=Allow(),
+            adapter=adapter,
+            store=store,
+            identity_provider=provider,
+        )
+        assert event.payload["principal_id"] == str(provider.authenticate().id)
+        assert adapter.calls == 1
     finally:
         store.close()
