@@ -145,3 +145,65 @@ def test_file_backed_store_survives_close_and_reopen(tmp_path) -> None:
         }
     finally:
         reopened.close()
+
+
+def test_event_integrity_hash_is_deterministic_and_detects_payload_tampering():
+    from kernel.durability import event_integrity_hash, verify_event_integrity
+
+    payload = {"request_id": "request-1", "value": 7}
+    kwargs = {
+        "event_id": "event-1",
+        "event_type": "test.event",
+        "timestamp": "2026-01-01T00:00:00+00:00",
+        "payload": payload,
+        "request_id": "request-1",
+        "provenance": {"source": "test"},
+    }
+    first = event_integrity_hash(**kwargs)
+    second = event_integrity_hash(**kwargs)
+    assert first == second
+    assert verify_event_integrity(recorded_hash=first, **kwargs)
+    assert not verify_event_integrity(
+        recorded_hash=first,
+        **{**kwargs, "payload": {"request_id": "request-1", "value": 8}},
+    )
+
+
+def test_event_integrity_hash_detects_metadata_tampering():
+    from kernel.durability import event_integrity_hash, verify_event_integrity
+
+    kwargs = {
+        "event_id": "event-2",
+        "event_type": "test.event",
+        "timestamp": "2026-01-01T00:00:00+00:00",
+        "payload": {"request_id": "request-2"},
+        "request_id": "request-2",
+        "provenance": {"source": "test"},
+    }
+    recorded = event_integrity_hash(**kwargs)
+    assert not verify_event_integrity(
+        recorded_hash=recorded,
+        **{**kwargs, "event_type": "test.changed"},
+    )
+
+
+def test_sqlite_event_integrity_verification_detects_tampering():
+    store = SQLiteEventStore()
+    try:
+        sequence = store.append(
+            event_id="event-integrity",
+            event_type="test.event",
+            timestamp="2026-01-01T00:00:00+00:00",
+            payload={"request_id": "request-integrity", "value": 1},
+            request_id="request-integrity",
+            provenance={"source": "test"},
+        )
+        assert store.verify_event_integrity(sequence) is True
+        store._connection.execute(
+            "UPDATE events SET payload=? WHERE sequence=?",
+            ('{"request_id":"request-integrity","value":2}', sequence),
+        )
+        store._connection.commit()
+        assert store.verify_event_integrity(sequence) is False
+    finally:
+        store.close()
