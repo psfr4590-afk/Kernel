@@ -2,6 +2,14 @@
 
 Status: ARCHITECTURAL ROADMAP. Implementation order aligned with the whole-program engineering protocol.
 
+## Current implementation status
+
+Phases 0 through 5 are established. Phase 6 and the first part of Phase 7 are now executable and verified through the constrained host.filesystem.read vertical slice.
+
+Verified evidence includes identity authentication, durable operation claims, proposal/context/governance/authorization flow, parameter-bound authorization, durable authorization issuance, pre-dispatch execution evidence, constrained filesystem dispatch, terminal outcomes, event/state durability, cryptographic event integrity, duplicate suppression, idempotency conflict rejection, interruption handling, UNKNOWN recovery, replay, and state rematerialization.
+
+The remaining Phase 7 work is operation-specific reconciliation and broader fault models. Phases 8 through 10 remain future work.
+
 ## Phase 0: Foundation
 Establish architecture, terminology, invariants, authority contract, evidence model, and explicit unknowns.
 
