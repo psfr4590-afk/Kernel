@@ -70,6 +70,25 @@ def assess_request_recovery(
     )
 
 
+def rematerialize_request_state(
+    store: SQLiteEventStore,
+    request_id: str,
+) -> RecoveryAssessment:
+    """Rebuild derived request state from immutable event history."""
+    assessment = assess_request_recovery(store.all_events(), request_id)
+    if not assessment.state:
+        return assessment
+    event_sequence = assessment.state.get("event_sequence")
+    if not isinstance(event_sequence, int):
+        return assessment
+    store.rematerialize_state(
+        subject=request_id,
+        state=assessment.state,
+        event_sequence=event_sequence,
+    )
+    return assess_request_recovery(store.all_events(), request_id)
+
+
 def record_unknown_recovery(
     store: SQLiteEventStore,
     request_id: str,
