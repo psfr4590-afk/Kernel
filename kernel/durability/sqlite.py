@@ -158,6 +158,39 @@ class SQLiteEventStore:
             self._connection.rollback()
             raise
 
+    def rematerialize_state(
+        self,
+        *,
+        subject: str,
+        state: Mapping[str, Any],
+        event_sequence: int,
+    ) -> None:
+        """Replace derived state from authoritative history without creating an event."""
+        if event_sequence <= 0:
+            raise ValueError("event_sequence must be positive")
+        state_data = canonical_json(state)
+        try:
+            exists = self._connection.execute(
+                "SELECT 1 FROM events WHERE sequence=?",
+                (event_sequence,),
+            ).fetchone()
+            if exists is None:
+                raise ValueError("event_sequence does not exist in authoritative history")
+            self._connection.execute(
+                """
+                INSERT INTO state(subject,state_json,event_sequence)
+                VALUES(?,?,?)
+                ON CONFLICT(subject) DO UPDATE SET
+                    state_json=excluded.state_json,
+                    event_sequence=excluded.event_sequence
+                """,
+                (subject, state_data, event_sequence),
+            )
+            self._connection.commit()
+        except Exception:
+            self._connection.rollback()
+            raise
+
     def all_events(self) -> list[tuple[int, str, str, str, str]]:
         rows = self._connection.execute(
             "SELECT sequence,event_id,event_type,timestamp,payload "
