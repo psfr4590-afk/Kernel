@@ -6,7 +6,7 @@ from datetime import timedelta
 from typing import Any, Mapping
 
 from kernel.authority import RevocationRegistry, issue_authorization
-from kernel.durability import SQLiteEventStore
+from kernel.durability import IdempotencyConflictError, SQLiteEventStore
 from kernel.execution import execute
 from kernel.intake import build_proposal, capture_context, receive_request
 from kernel.interfaces import ExecutionAdapter, GovernanceEvaluator, IdentityProvider
@@ -24,6 +24,7 @@ def process(
     store: SQLiteEventStore,
     revocations: RevocationRegistry | None = None,
     identity_provider: IdentityProvider | None = None,
+    idempotency_key: str | None = None,
 ):
     """Process one request through the identity, authority, and effect boundaries."""
     if identity_provider is not None:
@@ -38,7 +39,37 @@ def process(
         operation=operation,
         resource=resource,
         parameters=parameters,
+        idempotency_key=idempotency_key,
     )
+    existing_request_id, _, created = store.claim_operation(
+        principal_id=str(principal.id),
+        idempotency_key=request.idempotency_key if idempotency_key is None else idempotency_key,
+        request_id=str(request.id),
+        operation=operation,
+        resource=resource,
+        parameters=parameters,
+        timestamp=request.received_at.isoformat(),
+        correlation_id=str(request.id),
+        provenance={"source": "kernel.pipeline"},
+    )
+    if not created:
+        existing_event = store.latest_event_for_request(existing_request_id)
+        if existing_event is None:
+            raise RuntimeError("claimed operation has no durable evidence")
+        sequence, event_id, event_type, timestamp, payload = existing_event
+        import json
+        return Event(
+            id=__import__("uuid").UUID(event_id),
+            sequence=sequence,
+            event_type=event_type,
+            timestamp=__import__("datetime").datetime.fromisoformat(timestamp),
+            payload=json.loads(payload),
+            principal_id=principal.id,
+            request_id=__import__("uuid").UUID(existing_request_id),
+            correlation_id=__import__("uuid").UUID(existing_request_id),
+            provenance={"source": "kernel.pipeline"},
+        )
+
     proposal = build_proposal(request)
     context = capture_context(principal, resource)
     decision = governance.evaluate(proposal, context)
