@@ -17,11 +17,11 @@ Observed on main:
 - docs/KERNEL_SKETCH.md
 - docs/00 through docs/36 architecture/design documents
 
-No source package, executable entry point, test suite, dependency manifest, build configuration, deployment configuration, migration system, runtime configuration, or CI workflow was observed in the repository tree.
+Before the implementation baseline, no source package, executable entry point, test suite, dependency manifest, build configuration, deployment configuration, migration system, runtime configuration, or CI workflow was observed. The repository now contains the initial Python package, dependency manifest, test harness, and implementation-entry baseline in docs/39.
 
 Therefore:
 
-- Implementation status: UNKNOWN / not present in repository.
+- Implementation status: INITIAL EXECUTABLE SKELETON PRESENT; Kernel behavior remains largely unimplemented.
 - Runtime behavior: UNKNOWN.
 - Test coverage: UNKNOWN.
 - Security guarantees: DESIGNED, not VERIFIED.
@@ -139,11 +139,11 @@ Recovery model: DESIGNED
 Security properties: DESIGNED
 Threat model: DESIGNED
 Verification strategy: DESIGNED
-Technology choices: UNKNOWN
-Executable implementation: NOT PRESENT
-Executable verification evidence: NOT PRESENT
+Technology choices: BASELINE SETTLED BY ADRs; policy language/evaluator remain intentionally deferred
+Executable implementation: INITIAL SKELETON PRESENT
+Executable verification evidence: FOUNDATION IMPORT TEST ONLY; AUTHORITY PROPERTIES NOT VERIFIED
 
-The repository is therefore ready to enter controlled implementation work, but not entitled to claim implementation or runtime verification.
+The repository has now entered controlled implementation work. It is not entitled to claim completed implementation or runtime/security verification.
 
 ## 8. Required first engineering movement
 
