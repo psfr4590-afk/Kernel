@@ -1,12 +1,18 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
 
-from kernel.authority import AuthorizationError, RevocationRegistry, enforce_authorization, issue_authorization
-from kernel.durability import SQLiteEventStore
-from kernel.models import GovernanceDecision, Outcome, Principal
 from kernel import process
+from kernel.authority import (
+    AuthorizationError,
+    RevocationRegistry,
+    enforce_authorization,
+    issue_authorization,
+)
+from kernel.durability import SQLiteEventStore
+from kernel.intake import build_proposal, receive_request
+from kernel.models import GovernanceDecision, Outcome, Principal
 
 
 class Allow:
@@ -70,17 +76,17 @@ def test_denial_never_reaches_adapter():
 
 
 def test_revoked_authorization_blocks_effect():
-    from datetime import timedelta
-
     principal = Principal(uuid4(), "human")
-    request = __import__("kernel.intake", fromlist=["receive_request"]).receive_request(
+    request = receive_request(
         principal, operation="test.execute", resource="local:test", parameters={}
     )
-    proposal = __import__("kernel.intake", fromlist=["build_proposal"]).build_proposal(request)
+    proposal = build_proposal(request)
     now = datetime.now(timezone.utc)
     authorization = issue_authorization(
-        proposal, GovernanceDecision("ALLOW", proposal.id, "v1", "permitted"),
-        now, timedelta(minutes=1),
+        proposal,
+        GovernanceDecision("ALLOW", proposal.id, "v1", "permitted"),
+        now,
+        timedelta(minutes=1),
     )
     registry = RevocationRegistry()
     registry.revoke(authorization.id)
