@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from .replay import replay_request_state
+from .sqlite import SQLiteEventStore
+
+
+EventRow = Sequence[Any]
 
 
 @dataclass(frozen=True)
@@ -20,11 +25,11 @@ class RecoveryAssessment:
 
 
 def assess_request_recovery(
-    events: list[tuple[int, str, str, str, str]],
+    events: list[EventRow],
     request_id: str,
 ) -> RecoveryAssessment:
-    """Assess recoverable local evidence without creating a new effect."""
-    matching = []
+    """Assess local evidence without retrying, renewing, or creating an effect."""
+    matching: list[EventRow] = []
     for event in events:
         try:
             payload = json.loads(event[4])
@@ -63,3 +68,48 @@ def assess_request_recovery(
         requires_reconciliation=True,
         reason="evidence does not establish a terminal effect status",
     )
+
+
+def record_unknown_recovery(
+    store: SQLiteEventStore,
+    request_id: str,
+    *,
+    reason: str,
+    timestamp: str,
+    principal_id: str | None = None,
+    correlation_id: str | None = None,
+) -> RecoveryAssessment:
+    """Durably record unresolved recovery as UNKNOWN without creating an effect.
+
+    The recovery evidence identifier is deterministic for the request, making
+    repeated recovery assessment idempotent at the evidence boundary.
+    """
+    assessment = assess_request_recovery(store.all_events(), request_id)
+    if assessment.status != "UNKNOWN":
+        return assessment
+
+    existing_unknown = any(
+        row[2] == "recovery.unknown"
+        and json.loads(row[4]).get("request_id") == request_id
+        for row in store.all_events()
+    )
+    if not existing_unknown:
+        event_id = uuid5(NAMESPACE_URL, f"kernel:recovery:unknown:{request_id}")
+        store.append_with_state(
+            event_id=str(event_id),
+            event_type="recovery.unknown",
+            timestamp=timestamp,
+            payload={
+                "request_id": request_id,
+                "status": "UNKNOWN",
+                "reason": reason,
+            },
+            subject=request_id,
+            state={"status": "UNKNOWN"},
+            principal_id=principal_id,
+            request_id=request_id,
+            correlation_id=correlation_id or request_id,
+            provenance={"source": "kernel.recovery"},
+        )
+
+    return assess_request_recovery(store.all_events(), request_id)
