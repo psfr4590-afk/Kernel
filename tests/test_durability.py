@@ -60,7 +60,7 @@ def test_state_can_be_reconstructed_from_event_history():
 def test_denial_state_is_materialized_with_event() -> None:
     from kernel import process
     from kernel.authority import RevocationRegistry
-    from kernel.models import GovernanceDecision, Principal
+    from kernel.models import GovernanceDecision, Principal, new_id
 
     class Deny:
         def evaluate(self, proposal, context):
@@ -102,13 +102,20 @@ def test_state_sequence_must_not_move_backwards() -> None:
         subject="request-1",
         state={"status": "SUCCEEDED"},
     )
+    store._connection.execute(
+        "UPDATE state SET event_sequence=? WHERE subject=?",
+        (first + 100, "request-1"),
+    )
+    store._connection.commit()
 
-    import pytest
     from kernel.durability import StateSequenceError
 
     with pytest.raises(StateSequenceError):
-        store._connection.execute(
-            "INSERT INTO state(subject,state_json,event_sequence) VALUES(?,?,?) "
-            "ON CONFLICT(subject) DO UPDATE SET event_sequence=excluded.event_sequence",
-            ("request-1", '{"status":"FAILED"}', first - 1),
+        store.append_with_state(
+            event_id="event-2",
+            event_type="execution.failed",
+            timestamp="2026-01-01T00:00:01+00:00",
+            payload={"request_id": "request-1"},
+            subject="request-1",
+            state={"status": "FAILED"},
         )
