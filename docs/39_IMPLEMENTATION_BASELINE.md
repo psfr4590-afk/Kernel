@@ -1,7 +1,8 @@
 # Kernel Implementation Baseline
 
-Status: IMPLEMENTATION ENTRY / FIRST EXECUTABLE SKELETON
+Status: IMPLEMENTATION ENTRY / FIRST RECOVERY CAPABILITY
 Date: 2026-09-22
+
 
 ## Purpose
 
@@ -27,7 +28,13 @@ The repository now contains the smallest executable Python package and test harn
 
 The initial implementation is deliberately single-process and local-first under ADR-023. Internal boundaries must remain explicit even when implemented as Python calls.
 
-The first vertical slice will prove authority enforcement and durable evidence before peripheral capabilities are introduced.
+The first vertical slice proves authority enforcement and durable evidence before peripheral capabilities are introduced.
+
+## Recovery capability
+
+The initial recovery capability is read-only and evidence-first. It reconstructs local request state from durable event history and reports UNKNOWN when the available evidence does not establish a terminal effect outcome. It does not retry, renew authorization, rewrite history, or create a new effect.
+
+Recovery remains incomplete until reconciliation, interruption handling, durable revocation, and fault-injection verification are implemented.
 
 ## Dependency policy
 
