@@ -430,8 +430,6 @@ def test_idempotency_claim_survives_store_reopen(tmp_path):
 
 def test_pipeline_honors_durable_revocation_before_dispatch(monkeypatch):
     from kernel import pipeline
-    from kernel.models import Authorization
-
     store = SQLiteEventStore()
     adapter = Adapter()
     principal = Principal(uuid4(), "human")
