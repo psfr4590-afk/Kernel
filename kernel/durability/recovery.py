@@ -14,6 +14,15 @@ from .sqlite import SQLiteEventStore
 EventRow = Sequence[Any]
 
 
+def _event_request_id(event: EventRow) -> str | None:
+    """Read request identity from potentially corrupted event payload safely."""
+    try:
+        payload = json.loads(event[4])
+    except (TypeError, ValueError):
+        return None
+    return payload.get("request_id") if isinstance(payload, dict) else None
+
+
 @dataclass(frozen=True)
 class RecoveryAssessment:
     request_id: str
