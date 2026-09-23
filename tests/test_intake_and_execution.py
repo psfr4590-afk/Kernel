@@ -117,3 +117,14 @@ def test_invalid_adapter_evidence_is_rejected_after_attempt():
         )
 
     assert len(attempts) == 1
+
+
+def test_execution_is_blocked_after_authorization_expiry():
+    auth, proposal, now = _authorized_execution()
+    expired_at = auth.expires_at + timedelta(microseconds=1)
+    adapter = RecordingAdapter()
+
+    outcome = execute(auth, proposal, adapter, now=expired_at)
+
+    assert outcome.status == "BLOCKED"
+    assert adapter.calls == 0
