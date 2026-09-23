@@ -128,3 +128,42 @@ def test_filesystem_read_effect_without_terminal_persistence_is_unknown(tmp_path
         assert assessment.requires_reconciliation is True
     finally:
         store.close()
+
+
+class RaisingAdapter:
+    def execute(self, authorization, parameters):
+        raise RuntimeError("simulated external effect failure")
+
+
+def test_adapter_exception_after_attempt_is_recoverable_as_unknown(tmp_path: Path) -> None:
+    identity = LocalCryptographicIdentityProvider.generate()
+    store = SQLiteEventStore()
+    try:
+        try:
+            process(
+                operation="test.external.effect",
+                resource="local:test",
+                parameters={"value": 1},
+                governance=AllowFilesystemRead(),
+                adapter=RaisingAdapter(),
+                store=store,
+                identity_provider=identity,
+                idempotency_key="adapter-exception",
+            )
+        except RuntimeError as exc:
+            assert str(exc) == "simulated external effect failure"
+        else:
+            raise AssertionError("adapter exception was not propagated")
+
+        events = store.all_events()
+        assert [row[2] for row in events] == [
+            "operation.claimed",
+            "authorization.issued",
+            "execution.attempted",
+        ]
+        request_id = __import__("json").loads(events[0][4])["request_id"]
+        assessment = assess_request_recovery(events, request_id)
+        assert assessment.status == "UNKNOWN"
+        assert assessment.requires_reconciliation is True
+    finally:
+        store.close()
