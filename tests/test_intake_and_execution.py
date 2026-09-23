@@ -1,10 +1,11 @@
+import pytest
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 from kernel.authority import issue_authorization
-from kernel.execution import execute
+from kernel.execution import ExecutionProtocolError, execute
 from kernel.intake import build_proposal, capture_context, receive_request
-from kernel.models import GovernanceDecision, Principal
+from kernel.models import GovernanceDecision, Outcome, Principal
 
 
 class RecordingAdapter:
@@ -13,9 +14,7 @@ class RecordingAdapter:
 
     def execute(self, authorization, parameters):
         self.calls += 1
-        return type("Outcome", (), {})() if False else __import__("kernel.models", fromlist=["Outcome"]).Outcome(
-            uuid4(), "SUCCEEDED", {"parameters": dict(parameters)}
-        )
+        return Outcome(uuid4(), "SUCCEEDED", {"parameters": dict(parameters)})
 
 
 def test_request_to_execution_boundary():
@@ -59,3 +58,61 @@ def test_execution_is_blocked_after_revocation():
 
     assert outcome.status == "BLOCKED"
     assert adapter.calls == 0
+
+
+class InvalidStatusAdapter:
+    def execute(self, authorization, parameters):
+        return Outcome(uuid4(), "SUCCEEDED_WITH_A_SURPRISE", {})
+
+
+class InvalidEvidenceAdapter:
+    def execute(self, authorization, parameters):
+        return Outcome(uuid4(), "SUCCEEDED", ["not", "a", "mapping"])
+
+
+def _authorized_execution():
+    principal = Principal(uuid4(), "human", True)
+    request = receive_request(
+        principal, operation="test.execute", resource="local:test", parameters={}
+    )
+    proposal = build_proposal(request)
+    now = datetime.now(timezone.utc)
+    auth = issue_authorization(
+        proposal,
+        GovernanceDecision("ALLOW", proposal.id, "test-policy", "permitted"),
+        now,
+        timedelta(minutes=1),
+    )
+    return auth, proposal, now
+
+
+def test_invalid_adapter_status_is_rejected_after_attempt():
+    auth, proposal, now = _authorized_execution()
+    attempts = []
+
+    with pytest.raises(ExecutionProtocolError, match="unsupported terminal status"):
+        execute(
+            auth,
+            proposal,
+            InvalidStatusAdapter(),
+            now=now,
+            on_attempt=lambda attempt_id: attempts.append(attempt_id),
+        )
+
+    assert len(attempts) == 1
+
+
+def test_invalid_adapter_evidence_is_rejected_after_attempt():
+    auth, proposal, now = _authorized_execution()
+    attempts = []
+
+    with pytest.raises(ExecutionProtocolError, match="non-mapping evidence"):
+        execute(
+            auth,
+            proposal,
+            InvalidEvidenceAdapter(),
+            now=now,
+            on_attempt=lambda attempt_id: attempts.append(attempt_id),
+        )
+
+    assert len(attempts) == 1
