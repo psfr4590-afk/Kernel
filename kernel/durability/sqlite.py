@@ -669,7 +669,57 @@ class SQLiteEventStore:
             "request_id": request_id,
         })
         provenance_data = canonical_json(provenance or {})
+        payload = {
+            "authorization_id": authorization_id,
+            "reason": reason,
+            "request_id": request_id,
+        }
         try:
+            existing = self._connection.execute(
+                "SELECT revoked_at,reason FROM revocations WHERE authorization_id=?",
+                (authorization_id,),
+            ).fetchone()
+            if existing is not None:
+                if str(existing[0]) != revoked_at or str(existing[1]) != reason:
+                    raise AuthorizationIssuanceError(
+                        "authorization id already has conflicting revocation"
+                    )
+                rows = self._connection.execute(
+                    """
+                    SELECT sequence,event_id,timestamp,payload,schema_version,
+                           principal_id,request_id,correlation_id,provenance
+                    FROM events
+                    WHERE event_type='authorization.revoked'
+                    ORDER BY sequence
+                    """
+                ).fetchall()
+                for row in rows:
+                    try:
+                        recorded_payload = json.loads(row[3])
+                    except (TypeError, json.JSONDecodeError) as exc:
+                        raise AuthorizationIssuanceError(
+                            "existing authorization revocation evidence is not valid JSON"
+                        ) from exc
+                    if recorded_payload.get("authorization_id") != authorization_id:
+                        continue
+                    if (
+                        recorded_payload != payload
+                        or row[2] != revoked_at
+                        or row[4] != 1
+                        or row[5] != principal_id
+                        or row[6] != request_id
+                        or row[7] != correlation_id
+                        or row[8] != provenance_data
+                    ):
+                        raise AuthorizationIssuanceError(
+                            "authorization id already has conflicting revocation evidence"
+                        )
+                    self._connection.commit()
+                    return int(row[0])
+                raise AuthorizationIssuanceError(
+                    "authorization revocation record exists without matching evidence"
+                )
+
             self._connection.execute(
                 "INSERT INTO revocations(authorization_id,revoked_at,reason) VALUES(?,?,?)",
                 (authorization_id, revoked_at, reason),
@@ -681,8 +731,10 @@ class SQLiteEventStore:
                     principal_id,request_id,correlation_id,provenance
                 ) VALUES(?,?,?,?,?,?,?,?,?)
                 """,
-                (event_id, "authorization.revoked", revoked_at, event_data, 1,
-                 principal_id, request_id, correlation_id, provenance_data),
+                (
+                    event_id, "authorization.revoked", revoked_at, event_data, 1,
+                    principal_id, request_id, correlation_id, provenance_data,
+                ),
             )
             sequence = int(cursor.lastrowid)
             self._store_event_integrity_hash(
@@ -690,11 +742,7 @@ class SQLiteEventStore:
                 event_id=event_id,
                 event_type="authorization.revoked",
                 timestamp=revoked_at,
-                payload={
-                    "authorization_id": authorization_id,
-                    "reason": reason,
-                    "request_id": request_id,
-                },
+                payload=payload,
                 schema_version=1,
                 principal_id=principal_id,
                 request_id=request_id,
