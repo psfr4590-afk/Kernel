@@ -51,22 +51,25 @@ def record_reconciliation(
 
         event_id = uuid5(NAMESPACE_URL, f"kernel:reconciliation:{request_id}:{status}")
         store.append_with_state(
-        event_id=str(event_id),
-        event_type="recovery.reconciled",
-        timestamp=timestamp,
-        payload={
-            "request_id": request_id,
-            "status": status,
-            "outcome": status,
-            "evidence": dict(evidence),
-            "source": source,
-        },
-        subject=request_id,
-        state={"status": status},
-        principal_id=principal_id,
-        request_id=request_id,
-        correlation_id=correlation_id or request_id,
-        provenance={"source": "kernel.recovery.reconciliation", "evidence_source": source},
+            event_id=str(event_id),
+            event_type="recovery.reconciled",
+            timestamp=timestamp,
+            payload={
+                "request_id": request_id,
+                "status": status,
+                "outcome": status,
+                "evidence": dict(evidence),
+                "source": source,
+            },
+            subject=request_id,
+            state={"status": status},
+            principal_id=principal_id,
+            request_id=request_id,
+            correlation_id=correlation_id or request_id,
+            provenance={
+                "source": "kernel.recovery.reconciliation",
+                "evidence_source": source,
+            },
         )
         return assess_request_recovery(store.all_events(), request_id)
     except Exception:
