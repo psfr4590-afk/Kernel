@@ -32,4 +32,10 @@ Before implementation, the repository should contain the architecture map, objec
 
 ## Current status
 
-The Kernel remains a pre-implementation blueprint. Documentation coverage does not imply executable implementation.
+The pre-implementation gate has been superseded by the executable implementation baseline.
+
+Phases 0 through 5 are established, and the first Phase 6 vertical slice is implemented and verified. Phase 7 recovery/resilience work is partially implemented and verified for interruption, persistence failure, uncertainty, duplicate handling, replay, revocation, authorization expiry enforcement, and state rematerialization.
+
+This document remains the entry-gate contract for architectural scope. It must not be read as a claim that every listed domain is implemented. The current implementation boundary and evidence are maintained in `docs/39_IMPLEMENTATION_BASELINE.md` and `docs/25_CONTRACT_TRACEABILITY_MATRIX.md`.
+
+The remaining architecture is implemented only as design where explicitly marked UNKNOWN or deferred. Code must stop for clarification when a remaining implementation would require an unresolved architectural decision or would weaken an established authority, durability, integrity, or recovery invariant.
