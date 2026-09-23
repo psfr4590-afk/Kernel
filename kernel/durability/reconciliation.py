@@ -37,14 +37,20 @@ def record_reconciliation(
     if not isinstance(evidence, Mapping) or not evidence:
         raise ValueError("reconciliation evidence must be a non-empty mapping")
 
-    assessment = assess_request_recovery(store.all_events(), request_id)
-    if assessment.status != "UNKNOWN":
-        if assessment.status != status:
-            raise ValueError("request already has conflicting authoritative outcome")
-        return assessment
+    # Serialize the assess-and-record decision across SQLite connections. Without
+    # this boundary, concurrent identical reconciliations can both observe
+    # UNKNOWN and race to insert the same deterministic event identifier.
+    try:
+        store._connection.execute("BEGIN IMMEDIATE")
+        assessment = assess_request_recovery(store.all_events(), request_id)
+        if assessment.status != "UNKNOWN":
+            store._connection.commit()
+            if assessment.status != status:
+                raise ValueError("request already has conflicting authoritative outcome")
+            return assessment
 
-    event_id = uuid5(NAMESPACE_URL, f"kernel:reconciliation:{request_id}:{status}")
-    store.append_with_state(
+        event_id = uuid5(NAMESPACE_URL, f"kernel:reconciliation:{request_id}:{status}")
+        store.append_with_state(
         event_id=str(event_id),
         event_type="recovery.reconciled",
         timestamp=timestamp,
@@ -61,5 +67,8 @@ def record_reconciliation(
         request_id=request_id,
         correlation_id=correlation_id or request_id,
         provenance={"source": "kernel.recovery.reconciliation", "evidence_source": source},
-    )
-    return assess_request_recovery(store.all_events(), request_id)
+        )
+        return assess_request_recovery(store.all_events(), request_id)
+    except Exception:
+        store._connection.rollback()
+        raise
