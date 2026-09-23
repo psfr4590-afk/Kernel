@@ -173,6 +173,7 @@ class SQLiteEventStore:
                     raise IdempotencyConflictError(
                         "idempotency key already identifies a different operation"
                     )
+                self._connection.commit()
                 return str(existing[0]), int(existing[4]), False
 
             event_id = str(__import__("uuid").uuid4())
