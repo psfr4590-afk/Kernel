@@ -116,7 +116,7 @@ def record_unknown_recovery(
     """
     try:
         store._connection.execute("BEGIN IMMEDIATE")
-        assessment = assess_request_recovery(store.all_events(), request_id)
+        assessment = assess_request_recovery(store.verified_events(), request_id)
         if assessment.status != "UNKNOWN":
             store._connection.commit()
             return assessment
@@ -124,7 +124,7 @@ def record_unknown_recovery(
         existing_unknown = any(
             row[2] == "recovery.unknown"
             and _event_request_id(row) == request_id
-            for row in store.all_events()
+            for row in store.verified_events()
         )
         if not existing_unknown:
             event_id = uuid5(NAMESPACE_URL, f"kernel:recovery:unknown:{request_id}")
@@ -146,7 +146,7 @@ def record_unknown_recovery(
             )
         else:
             store._connection.commit()
-        return assess_request_recovery(store.all_events(), request_id)
+        return assess_request_recovery(store.verified_events(), request_id)
     except Exception:
         store._connection.rollback()
         raise
@@ -164,7 +164,7 @@ def record_interruption(
     """Record an interruption boundary without claiming an execution outcome."""
     try:
         store._connection.execute("BEGIN IMMEDIATE")
-        assessment = assess_request_recovery(store.all_events(), request_id)
+        assessment = assess_request_recovery(store.verified_events(), request_id)
         if assessment.status in {"SUCCEEDED", "FAILED", "PARTIAL", "DENIED", "BLOCKED"}:
             store._connection.commit()
             return assessment
@@ -172,7 +172,7 @@ def record_interruption(
         existing = any(
             row[2] == "recovery.interrupted"
             and _event_request_id(row) == request_id
-            for row in store.all_events()
+            for row in store.verified_events()
         )
         if not existing:
             event_id = uuid5(NAMESPACE_URL, f"kernel:recovery:interrupted:{request_id}")
@@ -193,7 +193,7 @@ def record_interruption(
         else:
             store._connection.commit()
 
-        return assess_request_recovery(store.all_events(), request_id)
+        return assess_request_recovery(store.verified_events(), request_id)
     except Exception:
         store._connection.rollback()
         raise
