@@ -20,7 +20,12 @@ def replay_request_state(events: list[EventRow], request_id: str) -> dict[str, A
     """Reconstruct the latest known request state without creating effects."""
     state: dict[str, Any] = {}
     for sequence, _event_id, event_type, _timestamp, payload, *_metadata in events:
-        data = json.loads(payload)
+        try:
+            data = json.loads(payload)
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(data, dict):
+            continue
         if data.get("request_id") != request_id:
             continue
         if event_type == "request.denied":
