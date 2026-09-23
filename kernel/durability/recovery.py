@@ -86,7 +86,7 @@ def rematerialize_request_state(
     request_id: str,
 ) -> RecoveryAssessment:
     """Rebuild derived request state from immutable event history."""
-    assessment = assess_request_recovery(store.all_events(), request_id)
+    assessment = assess_request_recovery(store.verified_events(), request_id)
     if not assessment.state:
         return assessment
     event_sequence = assessment.state.get("event_sequence")
@@ -97,7 +97,7 @@ def rematerialize_request_state(
         state=assessment.state,
         event_sequence=event_sequence,
     )
-    return assess_request_recovery(store.all_events(), request_id)
+    return assess_request_recovery(store.verified_events(), request_id)
 
 
 def record_unknown_recovery(
