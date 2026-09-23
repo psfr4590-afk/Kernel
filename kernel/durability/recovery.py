@@ -109,7 +109,7 @@ def record_unknown_recovery(
 
     existing_unknown = any(
         row[2] == "recovery.unknown"
-        and json.loads(row[4]).get("request_id") == request_id
+        and _event_request_id(row) == request_id
         for row in store.all_events()
     )
     if not existing_unknown:
@@ -150,7 +150,7 @@ def record_interruption(
 
     existing = any(
         row[2] == "recovery.interrupted"
-        and json.loads(row[4]).get("request_id") == request_id
+        and _event_request_id(row) == request_id
         for row in store.all_events()
     )
     if not existing:
