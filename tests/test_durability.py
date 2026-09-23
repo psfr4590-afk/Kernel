@@ -274,3 +274,64 @@ def test_concurrent_claim_conflict_remains_a_conflict(tmp_path) -> None:
             )
     finally:
         second.close()
+
+
+def test_revocation_is_idempotent_and_returns_original_evidence() -> None:
+    store = SQLiteEventStore()
+    authorization_id = str(uuid4())
+    request_id = str(uuid4())
+    principal_id = str(uuid4())
+    try:
+        first = store.revoke_authorization(
+            authorization_id,
+            "2026-01-01T00:00:00+00:00",
+            "security response",
+            event_id=str(uuid4()),
+            principal_id=principal_id,
+            request_id=request_id,
+            correlation_id=request_id,
+            provenance={"source": "test"},
+        )
+        second = store.revoke_authorization(
+            authorization_id,
+            "2026-01-01T00:00:00+00:00",
+            "security response",
+            event_id=str(uuid4()),
+            principal_id=principal_id,
+            request_id=request_id,
+            correlation_id=request_id,
+            provenance={"source": "test"},
+        )
+        assert second == first
+        assert len(store.all_events()) == 1
+        assert store.is_authorization_revoked(authorization_id)
+    finally:
+        store.close()
+
+
+def test_conflicting_revocation_is_rejected_without_new_evidence() -> None:
+    store = SQLiteEventStore()
+    authorization_id = str(uuid4())
+    try:
+        store.revoke_authorization(
+            authorization_id,
+            "2026-01-01T00:00:00+00:00",
+            "security response",
+            event_id=str(uuid4()),
+            request_id="request-1",
+            correlation_id="request-1",
+            provenance={"source": "test"},
+        )
+        with pytest.raises(ValueError, match="conflicting revocation"):
+            store.revoke_authorization(
+                authorization_id,
+                "2026-01-01T00:00:01+00:00",
+                "different reason",
+                event_id=str(uuid4()),
+                request_id="request-2",
+                correlation_id="request-2",
+                provenance={"source": "test"},
+            )
+        assert len(store.all_events()) == 1
+    finally:
+        store.close()
