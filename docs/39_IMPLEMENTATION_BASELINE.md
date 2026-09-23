@@ -15,7 +15,7 @@ This document records implemented behavior, not architectural intent. Claims her
 - Cryptography: cryptography, including Ed25519 identity and AES-256-GCM local key storage.
 - Authorization: short-lived, scoped, revocable authority, ADR-009 and ADR-011.
 - Event ordering and event/state atomicity: durable SQLite sequence and transactional state materialization.
-- Replay and recovery: deterministic replay, durable UNKNOWN recovery, interruption evidence, and state rematerialization.
+- Replay and recovery: deterministic replay, durable UNKNOWN recovery, explicit external reconciliation evidence, interruption evidence, and state rematerialization.
 - Audit integrity: SHA-256 event integrity hashes with explicit algorithm/version metadata, ADR-019.
 - Idempotency: durable principal-scoped operation identity, canonical request fingerprinting, duplicate resolution, and conflict rejection, ADR-015.
 - External effects: narrow execution adapter boundary, ADR-014 and ADR-025.
@@ -42,7 +42,7 @@ The pipeline can authenticate a principal through the local cryptographic identi
 
 ## Verification baseline
 
-CI verifies linting and the executable test suite after each implementation change. Current coverage includes authority boundaries, parameter binding, identity authentication, encrypted key storage, durable operation idempotency, execution lifecycle evidence, filesystem containment, event integrity, durable persistence, revocation, interruption, UNKNOWN recovery, replay, and state rematerialization.
+CI verifies linting and the executable test suite after each implementation change. Current coverage includes authority boundaries, parameter binding, identity authentication, encrypted key storage, durable operation idempotency, execution lifecycle evidence, filesystem containment, event integrity, durable persistence, revocation, interruption, UNKNOWN recovery, explicit reconciliation, replay, and state rematerialization.
 
 The evidence vocabulary remains:
 
