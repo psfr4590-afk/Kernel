@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -207,3 +208,69 @@ def test_sqlite_event_integrity_verification_detects_tampering():
         assert store.verify_event_integrity(sequence) is False
     finally:
         store.close()
+
+
+def test_concurrent_file_backed_claims_resolve_to_one_operation(tmp_path) -> None:
+    database = tmp_path / "concurrent.db"
+    principal_id = str(uuid4())
+
+    def claim(request_id: str):
+        store = SQLiteEventStore(str(database))
+        try:
+            return store.claim_operation(
+                principal_id=principal_id,
+                idempotency_key="concurrent-key",
+                request_id=request_id,
+                operation="test.execute",
+                resource="local:test",
+                parameters={"x": 1},
+                timestamp="2026-01-01T00:00:00+00:00",
+                correlation_id=None,
+                provenance={"source": "concurrency-test"},
+            )
+        finally:
+            store.close()
+
+    request_ids = [str(uuid4()), str(uuid4())]
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(claim, request_ids))
+
+    assert len({result[0] for result in results}) == 1
+    assert sum(result[2] for result in results) == 1
+    assert sorted(result[1] for result in results) == [1, 1]
+
+
+def test_concurrent_claim_conflict_remains_a_conflict(tmp_path) -> None:
+    database = tmp_path / "concurrent-conflict.db"
+    principal_id = str(uuid4())
+
+    first = SQLiteEventStore(str(database))
+    try:
+        first.claim_operation(
+            principal_id=principal_id,
+            idempotency_key="same-key",
+            request_id=str(uuid4()),
+            operation="test.execute",
+            resource="local:test",
+            parameters={"x": 1},
+            timestamp="2026-01-01T00:00:00+00:00",
+            correlation_id=None,
+        )
+    finally:
+        first.close()
+
+    second = SQLiteEventStore(str(database))
+    try:
+        with pytest.raises(Exception, match="idempotency key already identifies"):
+            second.claim_operation(
+                principal_id=principal_id,
+                idempotency_key="same-key",
+                request_id=str(uuid4()),
+                operation="test.execute",
+                resource="local:test",
+                parameters={"x": 2},
+                timestamp="2026-01-01T00:00:01+00:00",
+                correlation_id=None,
+            )
+    finally:
+        second.close()
