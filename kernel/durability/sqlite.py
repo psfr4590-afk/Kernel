@@ -154,6 +154,9 @@ class SQLiteEventStore:
         }
         provenance_data = provenance or {}
         try:
+            # Serialize operation claims across connections so two Kernel
+            # instances cannot both observe the same idempotency key as free.
+            self._connection.execute("BEGIN IMMEDIATE")
             existing = self._connection.execute(
                 """
                 SELECT request_id,operation,resource,request_fingerprint,claimed_sequence
@@ -242,8 +245,32 @@ class SQLiteEventStore:
             )
 
     def save_authorization(self, authorization: Any) -> None:
-        """Persist an issued authorization record idempotently."""
+        """Persist an issued authorization record idempotently and conflict-safely."""
+        authorization_id = str(authorization.id)
+        expected = (
+            str(authorization.principal_id),
+            str(authorization.proposal_id),
+            authorization.operation,
+            authorization.resource,
+            authorization.issued_at.isoformat(),
+            authorization.expires_at.isoformat(),
+            authorization.parameters_fingerprint,
+        )
         try:
+            existing = self._connection.execute(
+                """
+                SELECT principal_id,proposal_id,operation,resource,
+                       issued_at,expires_at,parameters_fingerprint
+                FROM authorizations WHERE authorization_id=?
+                """,
+                (authorization_id,),
+            ).fetchone()
+            if existing is not None:
+                if tuple(existing) != expected:
+                    raise AuthorizationIssuanceError(
+                        "authorization id already exists with conflicting authority"
+                    )
+                return
             self._connection.execute(
                 """
                 INSERT INTO authorizations(
@@ -253,7 +280,7 @@ class SQLiteEventStore:
                 ON CONFLICT(authorization_id) DO NOTHING
                 """,
                 (
-                    str(authorization.id),
+                    authorization_id,
                     str(authorization.principal_id),
                     str(authorization.proposal_id),
                     authorization.operation,
