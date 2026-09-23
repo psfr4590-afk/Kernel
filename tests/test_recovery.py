@@ -305,3 +305,32 @@ def test_replay_ignores_malformed_historical_payloads() -> None:
         ) == {}
     finally:
         store.close()
+
+
+def test_interruption_does_not_override_blocked_terminal_outcome() -> None:
+    store = SQLiteEventStore()
+    try:
+        store.append(
+            event_id="event-blocked-terminal",
+            event_type="execution.blocked",
+            timestamp="2026-01-01T00:00:00+00:00",
+            payload={
+                "request_id": "request-blocked-terminal",
+                "attempt_id": "attempt-blocked",
+                "outcome": "BLOCKED",
+            },
+        )
+        assessment = record_interruption(
+            store,
+            "request-blocked-terminal",
+            timestamp="2026-01-01T00:00:01+00:00",
+            reason="late interruption inspection",
+        )
+        assert assessment.status == "BLOCKED"
+        assert assessment.requires_reconciliation is False
+        assert not [
+            row for row in store.all_events()
+            if row[2] == "recovery.interrupted"
+        ]
+    finally:
+        store.close()
