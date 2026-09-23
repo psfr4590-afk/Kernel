@@ -167,3 +167,69 @@ def test_adapter_exception_after_attempt_is_recoverable_as_unknown(tmp_path: Pat
         assert assessment.requires_reconciliation is True
     finally:
         store.close()
+
+
+
+class InvalidStatusAdapter:
+    def execute(self, authorization, parameters):
+        from kernel.models import Outcome
+        return Outcome(
+            attempt_id=__import__("uuid").uuid4(),
+            status="SUCCEEDED_WITH_A_SURPRISE",
+            evidence={},
+        )
+
+
+class InvalidEvidenceAdapter:
+    def execute(self, authorization, parameters):
+        from kernel.models import Outcome
+        return Outcome(
+            attempt_id=__import__("uuid").uuid4(),
+            status="SUCCEEDED",
+            evidence=["invalid"],
+        )
+
+
+def test_invalid_adapter_protocol_after_attempt_requires_reconciliation(tmp_path: Path) -> None:
+    identity = LocalCryptographicIdentityProvider.generate()
+    store = SQLiteEventStore()
+    try:
+        for key, adapter, message in [
+            ("invalid-status", InvalidStatusAdapter(), "unsupported terminal status"),
+            ("invalid-evidence", InvalidEvidenceAdapter(), "non-mapping evidence"),
+        ]:
+            try:
+                process(
+                    operation="test.protocol",
+                    resource="local:test",
+                    parameters={"case": key},
+                    governance=AllowFilesystemRead(),
+                    adapter=adapter,
+                    store=store,
+                    identity_provider=identity,
+                    idempotency_key=key,
+                )
+            except Exception as exc:
+                assert message in str(exc)
+            else:
+                raise AssertionError("invalid adapter protocol was accepted")
+
+            events = store.all_events()
+            request_id = __import__("json").loads(
+                next(row[4] for row in events if row[2] == "operation.claimed"
+                and __import__("json").loads(row[4])["idempotency_key"] == key)
+            )["request_id"]
+            request_events = [
+                row for row in events
+                if __import__("json").loads(row[4]).get("request_id") == request_id
+            ]
+            assert [row[2] for row in request_events] == [
+                "operation.claimed",
+                "authorization.issued",
+                "execution.attempted",
+            ]
+            assessment = assess_request_recovery(events, request_id)
+            assert assessment.status == "UNKNOWN"
+            assert assessment.requires_reconciliation is True
+    finally:
+        store.close()
