@@ -626,6 +626,44 @@ class SQLiteEventStore:
         ).fetchall()
         return [(int(a), str(b), str(c), str(d), str(e)) for a, b, c, d, e in rows]
 
+    def verified_events(self) -> list[tuple[int, str, str, str, str]]:
+        """Return only events whose protected evidence passes integrity verification."""
+        rows = self._connection.execute(
+            """
+            SELECT sequence,event_id,event_type,timestamp,payload,schema_version,
+                   principal_id,request_id,causation_id,correlation_id,
+                   provenance,integrity_hash
+            FROM events ORDER BY sequence
+            """
+        ).fetchall()
+        verified: list[tuple[int, str, str, str, str]] = []
+        for row in rows:
+            if row[11] is None:
+                continue
+            try:
+                payload = json.loads(row[4])
+                provenance = json.loads(row[10])
+            except (TypeError, json.JSONDecodeError):
+                continue
+            if not isinstance(payload, Mapping) or not isinstance(provenance, Mapping):
+                continue
+            if not verify_event_integrity(
+                recorded_hash=str(row[11]),
+                event_id=str(row[1]),
+                event_type=str(row[2]),
+                timestamp=str(row[3]),
+                payload=payload,
+                schema_version=int(row[5]),
+                principal_id=row[6],
+                request_id=row[7],
+                causation_id=row[8],
+                correlation_id=row[9],
+                provenance=provenance,
+            ):
+                continue
+            verified.append((int(row[0]), str(row[1]), str(row[2]), str(row[3]), str(row[4])))
+        return verified
+
     def latest_event_for_request(self, request_id: str) -> tuple[int, str, str, str, str] | None:
         row = self._connection.execute(
             "SELECT sequence,event_id,event_type,timestamp,payload FROM events WHERE request_id=? ORDER BY sequence DESC LIMIT 1",
