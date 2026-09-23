@@ -1,5 +1,7 @@
 import pytest
 
+from kernel.durability.replay import replay_request_state
+
 from kernel.durability import (
     SQLiteEventStore,
     assess_request_recovery,
@@ -280,5 +282,26 @@ def test_recovery_ignores_malformed_historical_payloads() -> None:
             row for row in store.all_events()
             if row[2] == "recovery.unknown"
         ]) == 1
+    finally:
+        store.close()
+
+
+def test_replay_ignores_malformed_historical_payloads() -> None:
+    store = SQLiteEventStore()
+    try:
+        store.append(
+            event_id="event-replay-malformed",
+            event_type="corrupted.event",
+            timestamp="2026-01-01T00:00:00+00:00",
+            payload={"request_id": "request-replay-malformed"},
+        )
+        store._connection.execute(
+            "UPDATE events SET payload=? WHERE event_id=?",
+            ("not-json", "event-replay-malformed"),
+        )
+        store._connection.commit()
+        assert replay_request_state(
+            store.all_events(), "request-replay-malformed"
+        ) == {}
     finally:
         store.close()
