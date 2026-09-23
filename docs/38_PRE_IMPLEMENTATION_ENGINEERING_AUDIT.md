@@ -1,13 +1,15 @@
 # Kernel Pre-Implementation Engineering Audit
 
-Status: ENGINEERING BASELINE / PRE-IMPLEMENTATION
+> Historical baseline. This audit records the repository state before executable implementation began. It is retained for traceability and is superseded for current implementation status by `docs/39_IMPLEMENTATION_BASELINE.md`.
+
+Status: HISTORICAL ENGINEERING BASELINE / SUPERSEDED
 Date: 2026-09-22
 Scope: Whole repository, architecture and implementation-entry readiness
 Method: Repository reconstruction against the complete architectural draft and the Whole-Program Professional Engineering & Development Protocol.
 
 ## 1. Executive finding
 
-The repository contains a broad, internally coherent architectural specification, including the integrated end-to-end system design in document 36. It is not an implementation and therefore has no executable behavior that can currently be claimed as verified. The immediate engineering task is not to invent missing subsystems. It is to preserve the established authority model while converting the design into implementation contracts, settling only the technology decisions that are now unavoidable, and producing executable evidence continuously.
+The repository contains a broad, internally coherent architectural specification, including the integrated end-to-end system design in document 36. This document describes the pre-implementation state and is not a current statement of runtime behavior. The immediate task identified by this historical audit was to preserve the established authority model while converting the design into implementation contracts and producing executable evidence continuously. That work has since progressed into the verified first vertical slice documented in docs/39.
 
 ## 2. Repository reconstruction
 
@@ -17,14 +19,14 @@ Observed on main:
 - docs/KERNEL_SKETCH.md
 - docs/00 through docs/36 architecture/design documents
 
-Before the implementation baseline, no source package, executable entry point, test suite, dependency manifest, build configuration, deployment configuration, migration system, runtime configuration, or CI workflow was observed. The repository now contains the initial Python package, dependency manifest, test harness, and implementation-entry baseline in docs/39.
+Before the implementation baseline, no source package, executable entry point, test suite, dependency manifest, build configuration, deployment configuration, migration system, runtime configuration, or CI workflow was observed. The repository now contains the Python package, dependency manifest, test harness, CI workflow, and implementation baseline in docs/39.
 
 Therefore:
 
-- Implementation status: INITIAL EXECUTABLE SKELETON PRESENT; Kernel behavior remains largely unimplemented.
+- Implementation status at audit time: INITIAL EXECUTABLE SKELETON PRESENT.
 - Runtime behavior: UNKNOWN.
-- Test coverage: UNKNOWN.
-- Security guarantees: DESIGNED, not VERIFIED.
+- Test coverage at audit time: UNKNOWN.
+- Security guarantees at audit time: DESIGNED, not VERIFIED.
 - Performance: UNKNOWN.
 - Deployment readiness: UNKNOWN.
 
@@ -147,7 +149,7 @@ The repository has now entered controlled implementation work. It is not entitle
 
 ## 8. Required first engineering movement
 
-The first implementation movement should establish the smallest executable Kernel core that proves the authority boundary rather than building peripheral features first.
+At the time of this audit, the first implementation movement was required to establish the smallest executable Kernel core that proved the authority boundary rather than building peripheral features first.
 
 The first slice must be capable of demonstrating, with tests and durable evidence, at minimum:
 
@@ -193,8 +195,10 @@ Passing tests do not automatically establish VERIFIED for an architectural prope
 
 The blueprint is not being restarted, reduced, or replaced. It is the specification from which implementation begins.
 
-The engineering task is now:
+The engineering workflow established by this audit was:
 
 Understand -> Define -> Design -> Implement -> Test -> Verify -> Document -> Reassess
+
+Current implementation status is maintained separately in docs/39.
 
 The next changes should therefore be executable implementation plus the ADRs strictly required to support that implementation, with every change traced back to the existing architecture and every authority-bearing boundary tested.
