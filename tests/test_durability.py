@@ -335,3 +335,40 @@ def test_conflicting_revocation_is_rejected_without_new_evidence() -> None:
         assert len(store.all_events()) == 1
     finally:
         store.close()
+
+
+def test_concurrent_identical_revocations_resolve_to_one_evidence(tmp_path) -> None:
+    database = tmp_path / "concurrent-revocation.db"
+    authorization_id = str(uuid4())
+    principal_id = str(uuid4())
+    request_id = str(uuid4())
+
+    def revoke(event_id: str):
+        store = SQLiteEventStore(str(database))
+        try:
+            return store.revoke_authorization(
+                authorization_id,
+                "2026-01-01T00:00:00+00:00",
+                "security response",
+                event_id=event_id,
+                principal_id=principal_id,
+                request_id=request_id,
+                correlation_id=request_id,
+                provenance={"source": "concurrency-test"},
+            )
+        finally:
+            store.close()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(revoke, [str(uuid4()), str(uuid4())]))
+
+    assert results[0] == results[1]
+    reopened = SQLiteEventStore(str(database))
+    try:
+        assert len([
+            row for row in reopened.all_events()
+            if row[2] == "authorization.revoked"
+        ]) == 1
+        assert reopened.is_authorization_revoked(authorization_id)
+    finally:
+        reopened.close()
