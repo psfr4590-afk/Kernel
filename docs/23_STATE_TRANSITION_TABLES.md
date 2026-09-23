@@ -4,6 +4,8 @@
 
 This document defines the lifecycle as an explicit transition contract so implementation cannot invent legal transitions inside handlers, callbacks, queues, or database mutations.
 
+The tables remain the authoritative design contract. The implementation currently realizes a verified subset of these transitions through the first vertical slice; transitions not exercised by that slice remain design obligations rather than implementation claims.
+
 ## Primary lifecycle
 
 | Current | Allowed next | Required condition | Evidence |
@@ -60,10 +62,18 @@ This document defines the lifecycle as an explicit transition contract so implem
 
 Every authoritative transition MUST define its preconditions, authority requirement, evidence, failure behavior, and concurrency semantics. Consequential transitions MUST be attributable and timestamped.
 
-## Concurrency
-
 Concurrent actors MUST NOT produce conflicting authoritative transitions merely because both observed the same previous state. The implementation must choose and document appropriate serialization, locking, versioning, or transactional semantics.
+
+## Verified implementation subset
+
+The current verified vertical slice establishes the following concrete transition chain:
+
+RECEIVED -> VALIDATED -> IDENTIFIED -> PROPOSED -> EVALUATING -> EVALUATED -> AUTHORIZED -> EXECUTION_READY -> ATTEMPTED -> terminal outcome -> RECORDED/MATERIALIZED
+
+The verified slice also covers denial/blocking, authorization revocation, parameter-bound authorization, duplicate operation suppression, persistence-failure uncertainty, replay, interruption evidence, and state rematerialization. The EXPIRED transition remains a contract requirement; automatic expiry recording is not claimed merely because authorization freshness is enforced at execution time.
 
 ## Status
 
-This is a pre-implementation lifecycle contract, not an executable state machine.
+ARCHITECTURAL CONTRACT WITH A VERIFIED IMPLEMENTATION SUBSET.
+
+The table is not itself an executable state machine. Verified status is limited to transitions demonstrated by the current test suite and implementation baseline; all other transitions remain design obligations until separately implemented and verified.
