@@ -252,3 +252,33 @@ def test_replay_ignores_nonterminal_execution_events_even_with_outcome_field():
         assert assessment.requires_reconciliation is True
     finally:
         store.close()
+
+
+def test_recovery_ignores_malformed_historical_payloads() -> None:
+    store = SQLiteEventStore()
+    try:
+        store.append(
+            event_id="event-malformed",
+            event_type="corrupted.event",
+            timestamp="2026-01-01T00:00:00+00:00",
+            payload={"request_id": "other"},
+        )
+        store._connection.execute(
+            "UPDATE events SET payload=? WHERE event_id=?",
+            ("not-json", "event-malformed"),
+        )
+        store._connection.commit()
+        assessment = record_unknown_recovery(
+            store,
+            "request-malformed-history",
+            reason="historical evidence could not establish an outcome",
+            timestamp="2026-01-01T00:00:01+00:00",
+        )
+        assert assessment.status == "UNKNOWN"
+        assert assessment.requires_reconciliation is True
+        assert len([
+            row for row in store.all_events()
+            if row[2] == "recovery.unknown"
+        ]) == 1
+    finally:
+        store.close()
