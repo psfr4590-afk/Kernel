@@ -114,35 +114,42 @@ def record_unknown_recovery(
     The recovery evidence identifier is deterministic for the request, making
     repeated recovery assessment idempotent at the evidence boundary.
     """
-    assessment = assess_request_recovery(store.all_events(), request_id)
-    if assessment.status != "UNKNOWN":
-        return assessment
+    try:
+        store._connection.execute("BEGIN IMMEDIATE")
+        assessment = assess_request_recovery(store.all_events(), request_id)
+        if assessment.status != "UNKNOWN":
+            store._connection.commit()
+            return assessment
 
-    existing_unknown = any(
-        row[2] == "recovery.unknown"
-        and _event_request_id(row) == request_id
-        for row in store.all_events()
-    )
-    if not existing_unknown:
-        event_id = uuid5(NAMESPACE_URL, f"kernel:recovery:unknown:{request_id}")
-        store.append_with_state(
-            event_id=str(event_id),
-            event_type="recovery.unknown",
-            timestamp=timestamp,
-            payload={
-                "request_id": request_id,
-                "status": "UNKNOWN",
-                "reason": reason,
-            },
-            subject=request_id,
-            state={"status": "UNKNOWN"},
-            principal_id=principal_id,
-            request_id=request_id,
-            correlation_id=correlation_id or request_id,
-            provenance={"source": "kernel.recovery"},
+        existing_unknown = any(
+            row[2] == "recovery.unknown"
+            and _event_request_id(row) == request_id
+            for row in store.all_events()
         )
-
-    return assess_request_recovery(store.all_events(), request_id)
+        if not existing_unknown:
+            event_id = uuid5(NAMESPACE_URL, f"kernel:recovery:unknown:{request_id}")
+            store.append_with_state(
+                event_id=str(event_id),
+                event_type="recovery.unknown",
+                timestamp=timestamp,
+                payload={
+                    "request_id": request_id,
+                    "status": "UNKNOWN",
+                    "reason": reason,
+                },
+                subject=request_id,
+                state={"status": "UNKNOWN"},
+                principal_id=principal_id,
+                request_id=request_id,
+                correlation_id=correlation_id or request_id,
+                provenance={"source": "kernel.recovery"},
+            )
+        else:
+            store._connection.commit()
+        return assess_request_recovery(store.all_events(), request_id)
+    except Exception:
+        store._connection.rollback()
+        raise
 
 
 def record_interruption(
