@@ -309,6 +309,79 @@ def test_replay_ignores_malformed_historical_payloads() -> None:
         store.close()
 
 
+@pytest.mark.parametrize("terminal_status", ["SUCCEEDED", "FAILED", "PARTIAL", "DENIED"])
+def test_interruption_does_not_override_any_terminal_outcome(
+    terminal_status: str,
+) -> None:
+    store = SQLiteEventStore()
+    try:
+        event_type = (
+            "request.denied"
+            if terminal_status == "DENIED"
+            else f"execution.{terminal_status.lower()}"
+        )
+        payload = {
+            "request_id": "request-terminal-matrix",
+            "outcome": terminal_status,
+        }
+        if terminal_status != "DENIED":
+            payload["attempt_id"] = "attempt-terminal"
+        store.append(
+            event_id=f"event-terminal-{terminal_status.lower()}",
+            event_type=event_type,
+            timestamp="2026-01-01T00:00:00+00:00",
+            payload=payload,
+        )
+
+        assessment = record_interruption(
+            store,
+            "request-terminal-matrix",
+            timestamp="2026-01-01T00:00:01+00:00",
+            reason="late interruption inspection",
+        )
+
+        assert assessment.status == terminal_status
+        assert assessment.requires_reconciliation is False
+        assert not [
+            row for row in store.all_events()
+            if row[2] == "recovery.interrupted"
+        ]
+    finally:
+        store.close()
+
+
+def test_unknown_recovery_does_not_override_terminal_event_added_before_recording(
+) -> None:
+    store = SQLiteEventStore()
+    try:
+        store.append(
+            event_id="event-terminal-before-recovery",
+            event_type="execution.failed",
+            timestamp="2026-01-01T00:00:00+00:00",
+            payload={
+                "request_id": "request-terminal-before-recovery",
+                "attempt_id": "attempt-1",
+                "outcome": "FAILED",
+            },
+        )
+
+        assessment = record_unknown_recovery(
+            store,
+            "request-terminal-before-recovery",
+            reason="late recovery inspection",
+            timestamp="2026-01-01T00:00:01+00:00",
+        )
+
+        assert assessment.status == "FAILED"
+        assert assessment.requires_reconciliation is False
+        assert not [
+            row for row in store.all_events()
+            if row[2] == "recovery.unknown"
+        ]
+    finally:
+        store.close()
+
+
 def test_interruption_does_not_override_blocked_terminal_outcome() -> None:
     store = SQLiteEventStore()
     try:
