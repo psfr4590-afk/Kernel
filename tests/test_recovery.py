@@ -380,3 +380,47 @@ def test_unknown_recovery_is_concurrent_idempotent_across_connections(tmp_path):
         assert len(events) == 1
     finally:
         verification.close()
+
+
+
+def test_interruption_is_concurrent_idempotent_across_connections(tmp_path):
+    database = tmp_path / "interruption.db"
+    barrier = threading.Barrier(2)
+    results = []
+    errors = []
+
+    def interrupt() -> None:
+        from kernel.durability import SQLiteEventStore
+        store = SQLiteEventStore(str(database))
+        try:
+            barrier.wait()
+            results.append(
+                record_interruption(
+                    store,
+                    "request-concurrent-interruption",
+                    timestamp="2026-01-01T00:00:00+00:00",
+                    reason="process interrupted",
+                )
+            )
+        except Exception as exc:
+            errors.append(exc)
+        finally:
+            store.close()
+
+    threads = [threading.Thread(target=interrupt) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert not errors
+    assert [result.status for result in results] == ["UNKNOWN", "UNKNOWN"]
+    verification = SQLiteEventStore(str(database))
+    try:
+        events = [
+            row for row in verification.all_events()
+            if row[2] == "recovery.interrupted"
+        ]
+        assert len(events) == 1
+    finally:
+        verification.close()
