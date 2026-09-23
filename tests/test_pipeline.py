@@ -426,3 +426,47 @@ def test_idempotency_claim_survives_store_reopen(tmp_path):
         assert len(second.all_events()) == 1
     finally:
         second.close()
+
+
+def test_pipeline_honors_durable_revocation_before_dispatch(monkeypatch):
+    from kernel import pipeline
+    from kernel.models import Authorization
+
+    store = SQLiteEventStore()
+    adapter = Adapter()
+    principal = Principal(uuid4(), "human")
+    now = datetime.now(timezone.utc)
+
+    original_issue = pipeline.issue_authorization
+
+    def issue_then_revoke(proposal, decision, issued_at, lifetime):
+        authorization = original_issue(proposal, decision, issued_at, lifetime)
+        store.revoke_authorization(
+            str(authorization.id),
+            now.isoformat(),
+            "security response",
+            event_id=str(uuid4()),
+            principal_id=str(proposal.principal_id),
+            request_id=str(proposal.request_id),
+            correlation_id=str(proposal.request_id),
+            provenance={"source": "test"},
+        )
+        return authorization
+
+    monkeypatch.setattr(pipeline, "issue_authorization", issue_then_revoke)
+
+    try:
+        event = process(
+            principal,
+            operation="test.execute",
+            resource="local:test",
+            parameters={},
+            governance=Allow(),
+            adapter=adapter,
+            store=store,
+        )
+        assert event.event_type == "execution.blocked"
+        assert event.payload["outcome"] == "BLOCKED"
+        assert adapter.calls == 0
+    finally:
+        store.close()
