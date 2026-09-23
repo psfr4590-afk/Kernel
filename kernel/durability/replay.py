@@ -15,6 +15,8 @@ TERMINAL_EXECUTION_EVENTS = frozenset({
     "execution.blocked",
 })
 
+RECONCILIATION_EVENTS = frozenset({"recovery.reconciled"})
+
 
 def replay_request_state(events: list[EventRow], request_id: str) -> dict[str, Any]:
     """Reconstruct the latest known request state without creating effects."""
@@ -44,4 +46,11 @@ def replay_request_state(events: list[EventRow], request_id: str) -> dict[str, A
             }
             if "evidence" in data:
                 state["evidence"] = data["evidence"]
+        elif event_type in RECONCILIATION_EVENTS and "outcome" in data:
+            state = {
+                "status": data["outcome"],
+                "event_sequence": sequence,
+                "reconciled": True,
+                "evidence": data.get("evidence", {}),
+            }
     return state
