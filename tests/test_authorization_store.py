@@ -61,3 +61,29 @@ def test_authorization_record_save_is_idempotent() -> None:
         assert durable.get(authorization.id) == authorization
     finally:
         store.close()
+
+
+def test_conflicting_authorization_save_is_rejected() -> None:
+    store = SQLiteEventStore()
+    try:
+        authorization = make_authorization()
+        durable = SQLiteAuthorizationStore(store)
+        durable.save(authorization)
+
+        conflicting = authorization.__class__(
+            id=authorization.id,
+            principal_id=authorization.principal_id,
+            proposal_id=authorization.proposal_id,
+            operation=authorization.operation,
+            resource="local:other",
+            issued_at=authorization.issued_at,
+            expires_at=authorization.expires_at,
+            parameters_fingerprint=authorization.parameters_fingerprint,
+        )
+        import pytest
+
+        with pytest.raises(ValueError, match="conflicting authority"):
+            durable.save(conflicting)
+        assert durable.get(authorization.id) == authorization
+    finally:
+        store.close()
