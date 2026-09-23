@@ -382,6 +382,39 @@ def test_unknown_recovery_does_not_override_terminal_event_added_before_recordin
         store.close()
 
 
+def test_recovery_fails_closed_on_tampered_terminal_event() -> None:
+    store = SQLiteEventStore()
+    try:
+        request_id = "request-tampered-terminal"
+        store.append(
+            event_id="event-tampered-terminal",
+            event_type="execution.succeeded",
+            timestamp="2026-01-01T00:00:00+00:00",
+            payload={
+                "request_id": request_id,
+                "attempt_id": "attempt-1",
+                "outcome": "SUCCEEDED",
+                "evidence": {"remote_status": "committed"},
+            },
+        )
+        store._connection.execute(
+            "UPDATE events SET payload=? WHERE event_id=?",
+            (
+                '{"request_id":"request-tampered-terminal","attempt_id":"attempt-1",'
+                '"outcome":"FAILED","evidence":{"remote_status":"rejected"}}',
+                "event-tampered-terminal",
+            ),
+        )
+        store._connection.commit()
+
+        assert store.verify_event_integrity(1) is False
+        assessment = assess_request_recovery(store.verified_events(), request_id)
+        assert assessment.status == "UNKNOWN"
+        assert assessment.requires_reconciliation is True
+    finally:
+        store.close()
+
+
 def test_interruption_does_not_override_blocked_terminal_outcome() -> None:
     store = SQLiteEventStore()
     try:
