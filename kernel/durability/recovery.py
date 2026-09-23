@@ -44,6 +44,8 @@ def assess_request_recovery(
             payload = json.loads(event[4])
         except (TypeError, ValueError):
             continue
+        if not isinstance(payload, dict):
+            continue
         if payload.get("request_id") == request_id:
             matching.append(event)
 
