@@ -7,10 +7,10 @@ from .recovery import (
     RecoveryAssessment,
     assess_request_recovery,
     record_interruption,
-    record_reconciliation,
     record_unknown_recovery,
     rematerialize_request_state,
 )
+from .reconciliation import record_reconciliation
 from .replay import replay_request_state
 from .sqlite import (
     AuthorizationIssuanceError,
