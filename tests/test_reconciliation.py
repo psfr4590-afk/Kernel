@@ -190,4 +190,3 @@ def test_reconciliation_is_concurrent_idempotent_across_store_connections(tmp_pa
         )
     finally:
         verification.close()
-\n
