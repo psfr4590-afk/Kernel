@@ -7,6 +7,7 @@ from .recovery import (
     RecoveryAssessment,
     assess_request_recovery,
     record_interruption,
+    record_reconciliation,
     record_unknown_recovery,
     rematerialize_request_state,
 )
@@ -34,5 +35,6 @@ __all__ = [
     "replay_request_state",
     "record_unknown_recovery",
     "record_interruption",
+    "record_reconciliation",
     "rematerialize_request_state",
 ]
