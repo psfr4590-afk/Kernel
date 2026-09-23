@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import Any, Mapping
 from uuid import UUID
 
-from kernel.authority import RevocationRegistry, issue_authorization
+from kernel.authority import RevocationRegistry, SQLiteRevocationRegistry, issue_authorization
 from kernel.durability import SQLiteEventStore
 from kernel.execution import execute
 from kernel.intake import build_proposal, capture_context, receive_request
@@ -35,6 +35,8 @@ def process(
         principal = identity_provider.authenticate()
     if principal is None:
         raise ValueError("principal or identity_provider is required")
+
+    effective_revocations = revocations if revocations is not None else SQLiteRevocationRegistry(store)
 
     request = receive_request(
         principal,
@@ -169,7 +171,7 @@ def process(
         proposal,
         adapter,
         now=now,
-        revocations=revocations,
+        revocations=effective_revocations,
         on_attempt=record_attempt,
     )
     event = Event(
