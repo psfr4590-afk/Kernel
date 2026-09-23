@@ -145,12 +145,12 @@ def test_reconciliation_is_concurrent_idempotent_across_store_connections(tmp_pa
     finally:
         setup.close()
 
-    stores = [SQLiteEventStore(str(database)), SQLiteEventStore(str(database))]
     barrier = threading.Barrier(2)
     results = []
     errors = []
 
-    def reconcile(store: SQLiteEventStore) -> None:
+    def reconcile() -> None:
+        store = SQLiteEventStore(str(database))
         try:
             barrier.wait()
             results.append(
@@ -165,29 +165,29 @@ def test_reconciliation_is_concurrent_idempotent_across_store_connections(tmp_pa
             )
         except Exception as exc:
             errors.append(exc)
-
-    threads = [threading.Thread(target=reconcile, args=(store,)) for store in stores]
-    try:
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join()
-
-        assert not errors
-        assert [result.status for result in results] == ["SUCCEEDED", "SUCCEEDED"]
-        verification = SQLiteEventStore(str(database))
-        try:
-            events = [
-                row for row in verification.all_events()
-                if row[2] == "recovery.reconciled"
-            ]
-            assert len(events) == 1
-            assert verification.get_state("request-concurrent") == (
-                '{"status":"SUCCEEDED"}',
-                events[0][0],
-            )
         finally:
-            verification.close()
-    finally:
-        for store in stores:
             store.close()
+
+    threads = [threading.Thread(target=reconcile) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert not errors
+    assert [result.status for result in results] == ["SUCCEEDED", "SUCCEEDED"]
+
+    verification = SQLiteEventStore(str(database))
+    try:
+        events = [
+            row for row in verification.all_events()
+            if row[2] == "recovery.reconciled"
+        ]
+        assert len(events) == 1
+        assert verification.get_state("request-concurrent") == (
+            '{"status":"SUCCEEDED"}',
+            events[0][0],
+        )
+    finally:
+        verification.close()
+\n
