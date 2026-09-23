@@ -46,6 +46,19 @@ Recovery MUST preserve uncertainty where evidence cannot establish whether an ex
 ### P-012 Administrative authority
 Administrative and emergency operations MUST have explicit, attributable authority and MUST NOT become undocumented bypass channels.
 
+## Current implementation evidence
+
+The first verified vertical slice provides executable evidence for a substantial subset of these obligations:
+
+- P-001: identity is authenticated before consequential execution.
+- P-002/P-004/P-008: authorization binds the operation, resource, and canonical consequential parameters; modified parameters are rejected.
+- P-006: authorization freshness and durable revocation are enforced at the execution boundary.
+- P-009/P-011: terminal outcomes remain distinct from UNKNOWN, and recovery does not invent success.
+- P-010: consequential attempts and terminal outcomes are durably recorded with ordered, integrity-protected events.
+- Duplicate handling: durable principal-scoped idempotency prevents a duplicate effect and rejects conflicting reuse of an idempotency key.
+
+P-003 remains bounded by the current governance interface and deferred policy-language/evaluator decisions. P-007, P-012, and broader administrative/model-output bypass surfaces require continued adversarial verification as additional interfaces are implemented.
+
 ## Bypass analysis
 
 Every effect-capable path must answer: who is the principal, what proposal is being executed, which policy decision permits it, what authorization covers the exact operation and target, where is authorization enforced, what prevents bypass, and what survives a crash?
@@ -54,10 +67,12 @@ An UNKNOWN answer is an architectural gap.
 
 ## Boundary tests
 
-Future verification must attempt execution with no identity, forged identity, no proposal, no authorization, expired/revoked authorization, wrong resource, modified parameters, broader scope, replayed request, model-generated authority data, direct adapter access, recovery paths, and unauthorized administrative paths.
+Verification must attempt execution with no identity, forged identity, no proposal, no authorization, expired/revoked authorization, wrong resource, modified parameters, broader scope, replayed request, model-generated authority data, direct adapter access, recovery paths, and unauthorized administrative paths.
 
-Each must produce an inspectable result consistent with the authority contract.
+The currently implemented subset is backed by executable regression tests; boundary categories not yet implemented remain explicit verification obligations.
 
 ## Status
 
-These are proof obligations, not evidence that implementation already satisfies them.
+ARCHITECTURAL PROOF OBLIGATIONS WITH PARTIAL VERIFIED IMPLEMENTATION EVIDENCE.
+
+These obligations remain the standard for evaluating new code. Verified implementation evidence must never be inferred from documentation alone.
