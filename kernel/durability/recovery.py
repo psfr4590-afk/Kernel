@@ -156,7 +156,7 @@ def record_interruption(
 ) -> RecoveryAssessment:
     """Record an interruption boundary without claiming an execution outcome."""
     assessment = assess_request_recovery(store.all_events(), request_id)
-    if assessment.status in {"SUCCEEDED", "FAILED", "PARTIAL", "DENIED"}:
+    if assessment.status in {"SUCCEEDED", "FAILED", "PARTIAL", "DENIED", "BLOCKED"}:
         return assessment
 
     existing = any(
