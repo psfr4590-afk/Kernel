@@ -1,6 +1,7 @@
-import pytest
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
+
+import pytest
 
 from kernel.authority import issue_authorization
 from kernel.execution import ExecutionProtocolError, execute
